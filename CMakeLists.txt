@@ -13,6 +13,7 @@ set(SOURCES
     src/lexer.c
     src/ast.c
     src/parser.c
+    src/type_system.c
 )
 
 add_executable(bitN ${SOURCES})
