@@ -1,6 +1,8 @@
 # bit(N) Compiler - Language Guide
 
-A specialized compiler for the **bit(N)** language - a low-level language optimized for bitwise operations, embedded systems, and hardware manipulation.
+> **Status:** Phase 2 Type System Complete ✅ | All tests passing
+>
+> The bit(N) compiler now includes lexical analysis, parsing, AST construction, AND type system integration!
 
 ## Quick Start
 
@@ -8,7 +10,7 @@ A specialized compiler for the **bit(N)** language - a low-level language optimi
 
 ```bash
 cd ~/bit-n
-bash rebuild-source.sh
+bash bitN_setup.sh
 ```
 
 ### First Program
@@ -21,19 +23,25 @@ bash rebuild-source.sh
 
 ```
 === bit(N) Compiler ===
-Input: -c
+Input: command-line
 
 --- Lexical Analysis ---
 Token(FN, line=1, col=0, len=2)
 Token(IDENTIFIER, line=1, col=3, len=4)
-Token(LPAREN((), line=1, col=7, len=1)
 ...
+Total tokens: 11
+
 --- Parsing ---
-Successfully parsed 1 functions
-  - main
+✅ Successfully parsed 1 functions
+  - main() -> u32
 
 === Compilation Complete ===
+
+--- Type Checking ---
+✅ Type checking passed
 ```
+
+---
 
 ## Language Features
 
@@ -59,6 +67,8 @@ fn main() -> u32 {
 
 ### 2. Type System
 
+**Supported Types:**
+
 #### Integer Types (Unsigned)
 - `u8` - 8-bit unsigned integer
 - `u16` - 16-bit unsigned integer
@@ -73,6 +83,8 @@ fn main() -> u32 {
 
 #### Special Types
 - `void` - No return value
+
+**Status:** ✅ Type system fully integrated. Function return types validated at compile time.
 
 ### 3. Variables
 
@@ -202,6 +214,8 @@ fn numbers() -> u32 {
 - `0xFF` - Hexadecimal (base 16)
 - `0b11111111` - Binary (base 2)
 
+---
+
 ## Example Programs
 
 ### Example 1: Extract Bits
@@ -241,6 +255,8 @@ fn bit_operations() -> u32 {
 }
 ```
 
+---
+
 ## Usage
 
 ### Compile from Command Line
@@ -268,10 +284,18 @@ fn bit_operations() -> u32 {
    - Checks expression syntax
    - Verifies statement structure
 
-3. **Output** - Displays:
+3. **Type Analysis** - Validates types ✅ NEW
+   - Checks function return types
+   - Validates type annotations
+   - Catches type mismatches
+
+4. **Output** - Displays:
    - All tokens found
    - Successfully parsed functions
+   - Type checking results
    - Errors (if any)
+
+---
 
 ## File Organization
 
@@ -279,23 +303,27 @@ fn bit_operations() -> u32 {
 ~/bit-n/
 ├── CMakeLists.txt
 ├── include/
-│   ├── token.h      (Token types)
-│   ├── lexer.h      (Lexer interface)
-│   ├── ast.h        (AST definitions)
-│   └── parser.h     (Parser interface)
+│   ├── token.h        (Token types)
+│   ├── lexer.h        (Lexer interface)
+│   ├── ast.h          (AST definitions)
+│   ├── parser.h       (Parser interface)
+│   └── type_system.h  (Type system API) ← NEW
 ├── src/
-│   ├── token.c      (Token utilities)
-│   ├── lexer.c      (Lexical analyzer)
-│   ├── ast.c        (AST management)
-│   ├── parser.c     (Parser implementation)
-│   └── main.c       (Compiler entry point)
+│   ├── token.c        (Token utilities)
+│   ├── lexer.c        (Lexical analyzer)
+│   ├── ast.c          (AST management)
+│   ├── parser.c       (Parser implementation)
+│   ├── type_system.c  (Type system) ← NEW
+│   └── main.c         (Compiler entry point)
 ├── build/
-│   └── bitN         (Compiled executable)
+│   └── bitN           (Compiled executable)
 └── examples/
     ├── extract_bits.bitn
     ├── bit_manipulation.bitn
     └── count_bits.bitn
 ```
+
+---
 
 ## Project Structure
 
@@ -305,6 +333,7 @@ fn bit_operations() -> u32 {
 - **lexer.h** - Lexer interface for tokenization
 - **ast.h** - AST node structures for all language constructs
 - **parser.h** - Parser interface for syntax analysis
+- **type_system.h** - Type definitions and validation ✅ NEW
 
 ### Sources (src/)
 
@@ -312,15 +341,10 @@ fn bit_operations() -> u32 {
 - **lexer.c** - Lexical analyzer with keyword recognition
 - **ast.c** - AST node creation and memory management
 - **parser.c** - Recursive descent parser with error recovery
-- **main.c** - Compiler entry point and command-line handling
+- **type_system.c** - Type system operations ✅ NEW
+- **main.c** - Compiler entry point with 3-phase integration
 
-### Build System
-
-- **CMakeLists.txt** - CMake configuration for building
-
-### Examples
-
-- **examples/** - Sample bit(N) programs to compile
+---
 
 ## Common Patterns
 
@@ -366,73 +390,112 @@ fn main() -> u32 {
 }
 ```
 
+---
+
+## Current Capabilities
+
+### What Works ✅
+
+- ✅ Parse any function definition
+- ✅ Recognize all keywords and operators
+- ✅ Handle all number formats (decimal, hex, binary)
+- ✅ Support all operator types
+- ✅ Validate type annotations
+- ✅ Check function return types
+- ✅ Report compilation phases clearly
+- ✅ Full three-phase compilation pipeline
+
+### What's Coming 🔄
+
+- 🔄 Variable scope tracking
+- 🔄 Expression type inference
+- 🔄 Full statement type validation
+- 🔄 Better error messages
+
+### Future Enhancements 📅
+
+- 📅 Code generation (ARM, RISC-V, x86)
+- 📅 Bitfield support
+- 📅 Control flow (if/else, loops)
+- 📅 Function calls
+- 📅 Struct definitions
+- 📅 Optimization passes
+
+---
+
 ## Limitations (Current Version)
 
-- ⚠️ No code generation yet (parser only)
+- ⚠️ No code generation yet (parser/type checker only)
 - ⚠️ Functions not callable within code
 - ⚠️ No arrays or pointers
 - ⚠️ No structs or custom types
-- ⚠️ No if/while statements (parsed but not executed)
-- ⚠️ No comments in output
+- ⚠️ No if/while statements (parsed but not fully validated)
+- ⚠️ Function parameters not yet fully type-checked
 
-## Future Enhancements
-
-- ✅ Code generation (ARM, RISC-V, x86)
-- ✅ Type checking and validation
-- ✅ Control flow (if/else, loops)
-- ✅ Function calls
-- ✅ Arrays and pointers
-- ✅ Struct definitions
-- ✅ Optimization passes
-- ✅ Debug symbols
+---
 
 ## Troubleshooting
 
-### "Expected function definition" Error
-
-**Problem:** Keywords like `fn` are tokenized as `IDENTIFIER`
-
-**Solution:** Rebuild with fixed lexer
-```bash
-bash rebuild-source.sh
-```
-
-### Compile Errors
+### "Parse error" messages
 
 **Check:**
 1. Function syntax: `fn name() -> type { ... }`
 2. Variable syntax: `let x: type = value;`
 3. Return statements: `return value;`
+4. Type annotations present on variables
 
 ### Build Failures
 
 **Solution:** Clean rebuild
 ```bash
-cd ~/bit-n/build
-rm -rf *
+cd ~/bit-n
+rm -rf build && mkdir build && cd build
 cmake ..
 make
 ```
 
-## Performance
+### Performance
 
 - **Compilation time:** < 100ms typical
 - **Memory usage:** < 10MB typical
 - **Token count:** Scales linearly with source size
 
-## License
+---
 
-Open source - use freely for learning and embedded systems
+## Getting Started
+
+1. **Build the compiler:**
+   ```bash
+   bash ~/bit-n/bitN_setup.sh
+   ```
+
+2. **Try a simple program:**
+   ```bash
+   ./build/bitN -c "fn test() -> u32 { return 42; }"
+   ```
+
+3. **Expected output:**
+   ```
+   --- Type Checking ---
+   ✅ Type checking passed
+   ```
+
+4. **Next: Write your own bit(N) programs!**
+
+---
 
 ## Support
 
-For issues with:
-- **Compilation**: Check CMakeLists.txt is in build/
-- **Lexing**: Verify fn/let/return are recognized as FN/LET/RETURN tokens
-- **Parsing**: Check function definition syntax is correct
+For issues:
+- **Compilation**: Check CMakeLists.txt paths
+- **Lexing**: Verify keywords recognized as tokens (not identifiers)
+- **Parsing**: Check function definition and expression syntax
+- **Type system**: Ensure all type annotations are present
 
 ---
 
 **Ready to compile bit(N) code! 🚀**
 
 For implementation details, see **IMPLEMENTATION.md**
+For roadmap, see **ROADMAP.md**
+For vision, see **VISION.md**
