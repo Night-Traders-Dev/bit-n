@@ -1,0 +1,16 @@
+// Bit manipulation examples
+fn bit_operations() -> u32 {
+    let a: u32 = 0xAAAA;
+    let b: u32 = 0x5555;
+    let and_result: u32 = a & b;
+    let or_result: u32 = a | b;
+    let xor_result: u32 = a ^ b;
+    return xor_result;
+}
+
+fn shift_operations() -> u32 {
+    let value: u32 = 1;
+    let shifted_left: u32 = value << 4;
+    let shifted_right: u32 = shifted_left >> 2;
+    return shifted_right;
+}

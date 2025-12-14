@@ -1,0 +1,17 @@
+// Count set bits
+fn count_set_bits() -> u32 {
+    let value: u32 = 0xFF;
+    let count: u32 = 0;
+    return count;
+}
+
+fn simple_return() -> u32 {
+    return 42;
+}
+
+fn nested_operations() -> u32 {
+    let x: u32 = 10;
+    let y: u32 = 20;
+    let z: u32 = x + y;
+    return z;
+}

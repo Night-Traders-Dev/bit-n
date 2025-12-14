@@ -1,0 +1,7 @@
+// Extract bits from a value
+fn extract_bits() -> u32 {
+    let value: u32 = 0xFF;
+    let mask: u32 = 0x0F;
+    let result: u32 = value & mask;
+    return result;
+}
