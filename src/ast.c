@@ -87,7 +87,10 @@ ASTExpr *ast_expr_member_access(ASTExpr *object, const char *field) {
     return expr;
 }
 
-void ast_free_expr(ASTExpr *expr) { if (!expr) return; free(expr); }
+void ast_free_expr(ASTExpr *expr) {
+    if (!expr) return;
+    free(expr);
+}
 
 ASTStmt *ast_stmt_var_decl(const char *name, Type *type, ASTExpr *init, int is_mut) {
     ASTStmt *stmt = malloc(sizeof(ASTStmt));
@@ -121,11 +124,14 @@ ASTStmt *ast_stmt_block(ASTStmt **statements, size_t count) {
     return stmt;
 }
 
-void ast_free_stmt(ASTStmt *stmt) { if (!stmt) return; free(stmt); }
+void ast_free_stmt(ASTStmt *stmt) {
+    if (!stmt) return;
+    free(stmt);
+}
 
-ASTFunctionDef *ast_function_def(const char *name, Type *return_type, 
-                                  char **param_names, Type **param_types,
-                                  size_t param_count, ASTStmt *body) {
+ASTFunctionDef *ast_function_def(const char *name, Type *return_type,
+                                 char **param_names, Type **param_types,
+                                 size_t param_count, ASTStmt *body) {
     ASTFunctionDef *func = malloc(sizeof(ASTFunctionDef));
     func->name = name;
     func->return_type = return_type;
@@ -148,4 +154,8 @@ void ast_program_add_function(ASTProgram *prog, ASTFunctionDef *func) {
     prog->functions[prog->function_count++] = func;
 }
 
-void ast_free_program(ASTProgram *prog) { if (!prog) return; free(prog->functions); free(prog); }
+void ast_free_program(ASTProgram *prog) {
+    if (!prog) return;
+    free(prog->functions);
+    free(prog);
+}

@@ -4,7 +4,10 @@
 #include <ctype.h>
 
 static void lexer_advance(Lexer *lexer) {
-    if (lexer->current == '\n') { lexer->line++; lexer->column = 0; }
+    if (lexer->current == '\n') {
+        lexer->line++;
+        lexer->column = 0;
+    }
     if (lexer->pos < strlen(lexer->input)) {
         lexer->current = lexer->input[lexer->pos++];
         lexer->column++;
@@ -14,7 +17,9 @@ static void lexer_advance(Lexer *lexer) {
 }
 
 static char lexer_peek(Lexer *lexer) {
-    if (lexer->pos < strlen(lexer->input)) { return lexer->input[lexer->pos]; }
+    if (lexer->pos < strlen(lexer->input)) {
+        return lexer->input[lexer->pos];
+    }
     return '\0';
 }
 
@@ -28,21 +33,31 @@ Lexer *lexer_create(const char *input) {
     return lexer;
 }
 
-void lexer_free(Lexer *lexer) { free(lexer); }
+void lexer_free(Lexer *lexer) {
+    free(lexer);
+}
 
 void lexer_skip_whitespace(Lexer *lexer) {
-    while (isspace(lexer->current)) { lexer_advance(lexer); }
+    while (isspace(lexer->current)) {
+        lexer_advance(lexer);
+    }
 }
 
 void lexer_skip_comment(Lexer *lexer) {
     if (lexer->current == '/' && lexer_peek(lexer) == '/') {
-        while (lexer->current != '\n' && lexer->current != '\0') { lexer_advance(lexer); }
+        while (lexer->current != '\n' && lexer->current != '\0') {
+            lexer_advance(lexer);
+        }
     } else if (lexer->current == '/' && lexer_peek(lexer) == '*') {
-        lexer_advance(lexer); lexer_advance(lexer);
+        lexer_advance(lexer);
+        lexer_advance(lexer);
         while (!(lexer->current == '*' && lexer_peek(lexer) == '/') && lexer->current != '\0') {
             lexer_advance(lexer);
         }
-        if (lexer->current == '*') { lexer_advance(lexer); lexer_advance(lexer); }
+        if (lexer->current == '*') {
+            lexer_advance(lexer);
+            lexer_advance(lexer);
+        }
     }
 }
 
@@ -93,16 +108,35 @@ Token lexer_next_token(Lexer *lexer) {
     int line = (int)lexer->line;
     int column = (int)lexer->column;
     
+    // Parse numbers (decimal, hex, binary)
     if (isdigit(lexer->current)) {
         const char *start = &lexer->input[lexer->pos - 1];
         int length = 0;
-        while (isdigit(lexer->current)) {
+        
+        // Check for hex (0x) or binary (0b)
+        if (lexer->current == '0' && (lexer_peek(lexer) == 'x' || lexer_peek(lexer) == 'X' || 
+                                      lexer_peek(lexer) == 'b' || lexer_peek(lexer) == 'B')) {
             length++;
-            lexer_advance(lexer);
+            lexer_advance(lexer);  // skip '0'
+            length++;
+            lexer_advance(lexer);  // skip 'x' or 'b'
+            
+            // Parse hex or binary digits
+            while (isxdigit(lexer->current) || lexer->current == 'b' || lexer->current == 'B') {
+                length++;
+                lexer_advance(lexer);
+            }
+        } else {
+            // Parse decimal
+            while (isdigit(lexer->current)) {
+                length++;
+                lexer_advance(lexer);
+            }
         }
         return lexer_make_token(TOK_NUMBER, start, length, line, column);
     }
     
+    // Parse identifiers and keywords
     if (isalpha(lexer->current) || lexer->current == '_') {
         const char *start = &lexer->input[lexer->pos - 1];
         int length = 0;
@@ -114,10 +148,18 @@ Token lexer_next_token(Lexer *lexer) {
         return lexer_make_token(type, start, length, line, column);
     }
     
+    // Parse operators and delimiters
     const char *current_char = &lexer->input[lexer->pos - 1];
     
     if (lexer->current == '+') { lexer_advance(lexer); return lexer_make_token(TOK_PLUS, current_char, 1, line, column); }
-    if (lexer->current == '-') { lexer_advance(lexer); if (lexer->current == '>') { lexer_advance(lexer); return lexer_make_token(TOK_ARROW, current_char, 2, line, column); } return lexer_make_token(TOK_MINUS, current_char, 1, line, column); }
+    if (lexer->current == '-') { 
+        lexer_advance(lexer); 
+        if (lexer->current == '>') { 
+            lexer_advance(lexer); 
+            return lexer_make_token(TOK_ARROW, current_char, 2, line, column); 
+        } 
+        return lexer_make_token(TOK_MINUS, current_char, 1, line, column); 
+    }
     if (lexer->current == '*') { lexer_advance(lexer); return lexer_make_token(TOK_STAR, current_char, 1, line, column); }
     if (lexer->current == '/') { lexer_advance(lexer); return lexer_make_token(TOK_SLASH, current_char, 1, line, column); }
     if (lexer->current == '%') { lexer_advance(lexer); return lexer_make_token(TOK_PERCENT, current_char, 1, line, column); }
@@ -125,10 +167,46 @@ Token lexer_next_token(Lexer *lexer) {
     if (lexer->current == '|') { lexer_advance(lexer); return lexer_make_token(TOK_OR, current_char, 1, line, column); }
     if (lexer->current == '^') { lexer_advance(lexer); return lexer_make_token(TOK_XOR, current_char, 1, line, column); }
     if (lexer->current == '~') { lexer_advance(lexer); return lexer_make_token(TOK_NOT, current_char, 1, line, column); }
-    if (lexer->current == '<') { lexer_advance(lexer); if (lexer->current == '<') { lexer_advance(lexer); return lexer_make_token(TOK_LSHIFT, current_char, 2, line, column); } return lexer_make_token(TOK_LT, current_char, 1, line, column); }
-    if (lexer->current == '>') { lexer_advance(lexer); if (lexer->current == '>') { lexer_advance(lexer); return lexer_make_token(TOK_RSHIFT, current_char, 2, line, column); } return lexer_make_token(TOK_GT, current_char, 1, line, column); }
-    if (lexer->current == '=') { lexer_advance(lexer); if (lexer->current == '=') { lexer_advance(lexer); return lexer_make_token(TOK_EQ, current_char, 2, line, column); } return lexer_make_token(TOK_ASSIGN, current_char, 1, line, column); }
-    if (lexer->current == '!') { lexer_advance(lexer); if (lexer->current == '=') { lexer_advance(lexer); return lexer_make_token(TOK_NE, current_char, 2, line, column); } return lexer_make_token(TOK_ERROR, current_char, 1, line, column); }
+    if (lexer->current == '<') { 
+        lexer_advance(lexer); 
+        if (lexer->current == '<') { 
+            lexer_advance(lexer); 
+            return lexer_make_token(TOK_LSHIFT, current_char, 2, line, column); 
+        } 
+        if (lexer->current == '=') {
+            lexer_advance(lexer);
+            return lexer_make_token(TOK_LE, current_char, 2, line, column);
+        }
+        return lexer_make_token(TOK_LT, current_char, 1, line, column); 
+    }
+    if (lexer->current == '>') { 
+        lexer_advance(lexer); 
+        if (lexer->current == '>') { 
+            lexer_advance(lexer); 
+            return lexer_make_token(TOK_RSHIFT, current_char, 2, line, column); 
+        }
+        if (lexer->current == '=') {
+            lexer_advance(lexer);
+            return lexer_make_token(TOK_GE, current_char, 2, line, column);
+        }
+        return lexer_make_token(TOK_GT, current_char, 1, line, column); 
+    }
+    if (lexer->current == '=') { 
+        lexer_advance(lexer); 
+        if (lexer->current == '=') { 
+            lexer_advance(lexer); 
+            return lexer_make_token(TOK_EQ, current_char, 2, line, column); 
+        } 
+        return lexer_make_token(TOK_ASSIGN, current_char, 1, line, column); 
+    }
+    if (lexer->current == '!') { 
+        lexer_advance(lexer); 
+        if (lexer->current == '=') { 
+            lexer_advance(lexer); 
+            return lexer_make_token(TOK_NE, current_char, 2, line, column); 
+        } 
+        return lexer_make_token(TOK_ERROR, current_char, 1, line, column); 
+    }
     
     switch (lexer->current) {
         case '(': lexer_advance(lexer); return lexer_make_token(TOK_LPAREN, current_char, 1, line, column);

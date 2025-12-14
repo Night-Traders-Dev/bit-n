@@ -1,6 +1,5 @@
-#include "../include/token.h"
+#include "token.h"
 #include <stdio.h>
-#include <string.h>
 
 const char *token_type_name(TokenType type) {
     switch (type) {
