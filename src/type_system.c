@@ -1,4 +1,4 @@
-#include "../include/type_system.h"
+#include "type_system.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
