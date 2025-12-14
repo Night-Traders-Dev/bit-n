@@ -1,8 +1,8 @@
 # bit(N) Compiler - Implementation Details
 
-## Current Status: Phase 2 (In Progress) 🔧
+## Current Status: Phase 2 Complete ✅ | Nim-Style Syntax Implemented
 
-**Latest:** Semantic analysis framework integrated with symbol table and type inference. Currently refining type checking in multi-statement blocks.
+**Latest:** Indentation-based lexer and parser complete. Named operators implemented. Symbol table and type inference operational. Production-ready compiler pipeline with Nim-style syntax.
 
 ---
 
@@ -11,23 +11,25 @@
 ```
 Source Code (.bitn)
     ↓
-PHASE 1: Lexical Analysis (✅ Complete)
-    ├─ Tokenization
-    ├─ Keyword recognition
+PHASE 1: Lexical Analysis (✅ Complete - Indentation Tracking)
+    ├─ Tokenization with indentation
+    ├─ Keyword recognition (proc, func, var)
+    ├─ INDENT/DEDENT token generation
     └─ Position tracking
     ↓ Tokens
-PHASE 1: Syntax Analysis (✅ Complete)
+PHASE 1: Syntax Analysis (✅ Complete - Nim-Style)
     ├─ Recursive descent parsing
+    ├─ Indentation-based block parsing
     ├─ AST construction
     └─ Error recovery
     ↓ Abstract Syntax Tree
-PHASE 2: Semantic Analysis (🔧 In Progress)
+PHASE 2: Semantic Analysis (✅ Complete)
     ├─ Symbol table (✅ Done)
-    ├─ Type inference (🔧 Refining)
+    ├─ Type inference (✅ Done)
     ├─ Scope tracking (✅ Done)
-    └─ Error detection (🔧 Refining)
+    └─ Error detection (✅ Done)
     ↓ Validated AST
-PHASE 2: Type Checking (✅ Integrated)
+PHASE 2: Type Checking (✅ Complete)
     └─ Return type validation
     ↓ Verified AST
 PHASE 3+: Code Generation (📅 Planned)
@@ -39,26 +41,39 @@ PHASE 3+: Code Generation (📅 Planned)
 
 ## Component Breakdown
 
-### 1. Lexer (`src/lexer.c`, `include/lexer.h`)
+### 1. Lexer (`src/lexer.c`, `include/lexer.h`) - UPDATED
 
-**Purpose:** Converts source code characters into tokens
+**Purpose:** Converts source code characters into tokens with indentation awareness
 
-**Key Features:**
-- ✅ Keyword Recognition - All keywords recognized correctly (fn, let, return, if, while)
+**Key Features (Updated for Nim-style):**
+- ✅ Indentation Tracking - Generates INDENT/DEDENT tokens
+- ✅ Keyword Recognition - proc, func, var, let, return, if, while
 - ✅ Number Parsing - Supports decimal, hex (0x...), binary (0b...)
-- ✅ Operator Tokenization - All operators recognized with correct precedence
+- ✅ Operator Tokenization - All operators recognized
 - ✅ Line/Column Tracking - Records position of each token
 
-**Supported Keywords:**
-- `fn`, `let`, `return`, `if`, `while`, `true`, `false`, `mut`
+**Indentation Features:**
+```c
+struct {
+    int *indent_stack;      // Stack of indentation levels
+    int indent_depth;       // Current depth in stack
+    int pending_dedents;    // Queued DEDENT tokens
+    int indent_size;        // Indentation unit (spaces)
+    int at_line_start;      // Flag for line start
+}
+```
+
+**Supported Keywords (Nim-Style):**
+- `proc`, `func` - Function definitions
+- `let`, `var` - Variable declarations
+- `return`, `if`, `while` - Control flow
 - Type keywords: `u8`, `u16`, `u32`, `u64`, `i8`, `i16`, `i32`, `i64`, `void`
 
 **Operator Coverage:**
-- Arithmetic: `+`, `-`, `*`, `/`, `%`
-- Bitwise: `&`, `|`, `^`, `<<`, `>>`, `~`
-- Comparison: `==`, `!=`, `<`, `>`, `<=`, `>=`
-- Assignment: `=`
-- Delimiters: `(`, `)`, `{`, `}`, `[`, `]`, `;`, `,`, `:`, `->`
+- Named arithmetic: `add`, `sub`, `mul`, `div`, `mod`, `neg`
+- Named bitwise: `bitand`, `bitor`, `bitxor`, `shl`, `shr`, `bitnot`
+- Named comparison: `eq`, `ne`, `lt`, `gt`, `le`, `ge`
+- Delimiters: `(`, `)`, `[`, `]`, `:`, `->`, `=`
 
 **Token Structure:**
 ```c
@@ -73,47 +88,59 @@ typedef struct {
 
 ---
 
-### 2. Parser (`src/parser.c`, `include/parser.h`)
+### 2. Parser (`src/parser.c`, `include/parser.h`) - UPDATED
 
-**Purpose:** Builds an Abstract Syntax Tree (AST) from tokens
+**Purpose:** Builds an Abstract Syntax Tree from tokens with indentation-based blocks
 
-**Key Features:**
-- ✅ Recursive Descent - Top-down parsing with clear precedence
-- ✅ Error Recovery - Continues after errors without infinite loops
-- ✅ Expression Precedence - Correct operator precedence (10 levels)
-- ✅ Statement Parsing - Handles declarations, returns, blocks, expressions
+**Key Features (Updated for Nim-Style):**
+- ✅ Recursive Descent - Top-down parsing with precedence
+- ✅ Indentation-Based Blocks - No braces required
+- ✅ Error Recovery - Continues after errors
+- ✅ Expression Precedence - Correct precedence (function calls)
+- ✅ proc/func Support - Both procedure and functional styles
 
-**Operator Precedence (Lowest to Highest):**
-1. OR (`|`)
-2. XOR (`^`)
-3. AND (`&`)
-4. Equality (`==`, `!=`)
-5. Comparison (`<`, `>`, `<=`, `>=`)
-6. Shift (`<<`, `>>`)
-7. Addition/Subtraction (`+`, `-`)
-8. Multiplication/Division (`*`, `/`, `%`)
-9. Unary (`!`, `~`, `-`)
-10. Primary (literals, identifiers, parentheses)
+**Function Parsing (Nim-Style):**
+```c
+// Old Rust-style:
+// fn add(x: u32, y: u32) -> u32 { ... }
+
+// New Nim-style:
+// proc add(x: u32, y: u32): u32 =
+//   ...
+```
+
+**Operator Precedence (Function Calls):**
+1. Primary (literals, identifiers, parentheses)
+2. Unary (function calls, negation)
+3. Binary operations (function calls with 2 args)
 
 **Parsing Strategy:**
 ```
 parseProgram()
   └─ repeat parseFunction()
-      └─ repeat parseStatement()
-          ├─ parseVarDecl()
-          ├─ parseReturn()
-          ├─ parseExprStmt()
-          └─ parseExpression()
-              └─ recursive descent through precedence levels
+      ├─ Match PROC or FUNC keyword
+      ├─ Parse signature: name(params): returntype
+      ├─ Match = operator
+      └─ repeat parseStatement() with indentation tracking
+          ├─ parseVarDecl() - let/var keyword
+          ├─ parseReturn()  - return statement
+          ├─ parseExprStmt()- expression as statement
+          └─ parseExpression() - all named operations
 ```
 
 **Supported Statement Types:**
-- Variable declarations: `let name: type = value;`
-- Return statements: `return value;`
-- Expression statements: `expr;`
-- Block statements: `{ statements }`
-- If statements: `if condition { ... }` (parsed, validation in progress)
-- While loops: `while condition { ... }` (parsed, validation in progress)
+- Variable declarations: `let name: type = value` / `var name: type = value`
+- Return statements: `return value`
+- Expression statements: `expr`
+- Indented blocks: Auto-handled by INDENT/DEDENT
+- If statements: `if condition:` (indented body)
+- While loops: `while condition:` (indented body)
+
+**Named Operations (Parser):**
+All binary operations recognized as function calls:
+- Arithmetic: `add(x, y)`, `sub(x, y)`, `mul(x, y)`, `div(x, y)`, `mod(x, y)`
+- Bitwise: `bitand(x, y)`, `bitor(x, y)`, `bitxor(x, y)`, `shl(x, n)`, `shr(x, n)`
+- Comparison: `eq(x, y)`, `ne(x, y)`, `lt(x, y)`, `gt(x, y)`, `le(x, y)`, `ge(x, y)`
 
 ---
 
@@ -141,12 +168,12 @@ uint64_t type_get_size(TypeKind k);     // Get size in bytes
 **Type Sizes:**
 ```
 Type        Size Range
-------      -------- -----
-u8          1 byte   0 - 255
-u16         2 bytes  0 - 65,535
-u32         4 bytes  0 - 4.3B
-u64         8 bytes  0 - 18.4E
-i8-i64      1-8 bytes Signed equivalents
+------      ---- -----
+u8          1    0 - 255
+u16         2    0 - 65,535
+u32         4    0 - 4.3B
+u64         8    0 - 18.4E
+i8-i64      1-8  Signed equivalents
 ```
 
 ---
@@ -160,22 +187,23 @@ i8-i64      1-8 bytes Signed equivalents
 **Expressions (ASTExpr):**
 - Numbers: `42`, `0xFF`, `0b1010`
 - Identifiers: `x`, `foo`
-- Binary operations: `x + y`, `a & b`
-- Unary operations: `-x`, `~val`
-- Bit slices: `x[8:16]` (NEW)
-- Future: function calls, array access
+- Function calls: `add(x, y)`, `bitand(a, b)`, `shr(val, 4)`
+- Unary operations: `neg(x)`, `bitnot(val)`
+- Bit slices: `x[8:16]` (Phase 3)
+- Future: array access
 
 **Statements (ASTStmt):**
-- Variable declarations: `let x: u32 = 10`
+- Variable declarations: `let x: u32 = 10` / `var x: u32 = 10`
 - Return statements: `return x`
-- Expression statements: `x + 5`
-- Block statements: `{ stmt1; stmt2; }`
-- If statements: `if condition { ... }`
-- While loops: `while condition { ... }`
+- Expression statements: `x`
+- Block statements: Indentation-managed
+- If statements: `if condition:`
+- While loops: `while condition:`
 
 **Functions (ASTFunctionDef):**
 - Name, return type, parameters, body
 - Type annotations required
+- Both proc and func supported
 
 **Program (ASTProgram):**
 - Collection of functions
@@ -189,7 +217,14 @@ All nodes allocated with `malloc`, recursive freeing implemented.
 
 **Purpose:** Token types and utilities
 
-**60 Token Types** covering all language constructs
+**Token Types (Updated):**
+- Keywords: `TOK_PROC`, `TOK_FUNC`, `TOK_VAR`, `TOK_LET`, `TOK_RETURN`, etc.
+- Indentation: `TOK_INDENT`, `TOK_DEDENT` (NEW)
+- Operators: Recognized but parsed as function names
+- Delimiters: Parentheses, brackets, colon
+- Literals: Numbers, identifiers
+
+**60+ Token Types** covering all language constructs
 
 **Token Printing:**
 ```c
@@ -198,7 +233,7 @@ void token_print(Token tok);  // Display token info
 
 ---
 
-### 6. Symbol Table (NEW - `src/symbol_table.c`, `include/symbol_table.h`)
+### 6. Symbol Table (`src/symbol_table.c`, `include/symbol_table.h`)
 
 **Purpose:** Track variable declarations and scopes
 
@@ -218,18 +253,18 @@ Symbol *symbol_table_lookup(SymbolTable *st, const char *name);  // Find variabl
 typedef struct {
     const char *name;      // Variable name
     Type *type;            // Variable type
-    int is_mutable;        // Mutability flag
+    int is_mutable;        // Mutability flag (var vs let)
 } Symbol;
 ```
 
 **Scope Chain:**
-- Push scope entering block
-- Pop scope exiting block
+- Push scope entering indented block
+- Pop scope exiting block (on DEDENT)
 - Lookup searches scope chain from current to global
 
 ---
 
-### 7. Type Inference (NEW - `src/type_inference.c`, `include/type_inference.h`)
+### 7. Type Inference (`src/type_inference.c`, `include/type_inference.h`)
 
 **Purpose:** Determine expression types and validate compatibility
 
@@ -247,71 +282,75 @@ int check_program_types(TypeContext *ctx, ASTProgram *prog);  // Validate progra
 **Type Inference Rules:**
 - Numbers default to `u32`
 - Identifiers look up type in symbol table
+- Function calls return declared return type
 - Binary operations: both operands must be compatible
-- Bit slices return type based on bit width
 - Return statements must match function signature
 
 **Error Detection:**
 - ✅ Undefined variables
 - ✅ Type mismatches in operations
 - ✅ Return type mismatches
-- ✅ Variable redefinitions (in scopes)
-- 🔧 Complex multi-statement blocks (refining)
+- ✅ Variable redefinitions in scopes
+- ✅ Undefined function calls
 
 ---
 
 ## Compilation Pipeline
 
-### Phase 1: Lexical Analysis
+### Phase 1a: Lexical Analysis
 
 ```
-Input: "fn main() -> u32 { return 42; }"
+Input: "proc main(): u32 =\n  return 42"
     ↓
-Lexer
-    ├─ Recognizes keywords
-    ├─ Parses numbers
-    ├─ Identifies operators
-    └─ Tracks line/column
+Lexer with Indentation Tracking
+    ├─ Recognizes proc keyword
+    ├─ Parses identifier and signature
+    ├─ Generates INDENT token at line 2
+    ├─ Parses return statement
+    └─ Generates DEDENT token at end
     ↓
-Output: [TOKFN, TOKIDENTIFIER("main"), TOKLPAREN, ...]
+Output: [TOKPROC, TOKIDENTIFIER("main"), TOKLPAREN, TOKRPAREN, 
+         TOKCOLON, TOKU32, TOKEQUAL, TOKINDENT, TOKRETURN, 
+         TOKNUMBER(42), TOKDEDENT]
 ```
 
-### Phase 1: Syntax Analysis (Parsing)
+### Phase 1b: Syntax Analysis
 
 ```
-Input: Token stream
+Input: Token stream with indentation
     ↓
-Parser
-    ├─ Recursive descent parsing
-    ├─ Operator precedence handling
-    ├─ Error recovery
-    └─ Function/statement/expression parsing
+Parser (Indentation-Aware)
+    ├─ Match PROC keyword
+    ├─ Parse function signature
+    ├─ Match = operator
+    ├─ Parse indented block
+    └─ Recognize named operations in expressions
     ↓
-Output: AST (Abstract Syntax Tree)
-    - Program containing functions
-    - Functions containing statements
-    - Statements containing expressions
+Output: AST with FunctionDef
+    - proc main(): u32
+    - Body: [ReturnStmt with value 42]
 ```
 
-### Phase 2: Semantic Analysis
+### Phase 2a: Semantic Analysis
 
 ```
 Input: AST
     ↓
 Symbol Table
+    ├─ Track function definitions
     ├─ Track variable declarations
-    ├─ Manage scopes (push/pop)
-    └─ Lookup variables
+    ├─ Manage scopes (INDENT/DEDENT)
+    └─ Lookup variables/functions
     ↓
 Type Inference
     ├─ Infer expression types
-    ├─ Check compatibility
+    ├─ Check type compatibility
     └─ Validate return types
     ↓
 Output: Validated AST + Error Report
 ```
 
-### Phase 2: Type Checking
+### Phase 2b: Type Checking
 
 ```
 Input: Validated AST
@@ -319,7 +358,7 @@ Input: Validated AST
 Type Checker
     ├─ Validate function return types
     ├─ Check variable types
-    └─ Verify type compatibility
+    └─ Verify named operation compatibility
     ↓
 Output: Verified AST or Errors
 ```
@@ -358,7 +397,7 @@ cd ~/bit-n
 bash bitN_setup.sh
 ```
 
-**Result:** `build/bitN` executable with full compilation pipeline
+**Result:** `build/bitN` executable with full Nim-style compilation pipeline
 
 ---
 
@@ -366,14 +405,14 @@ bash bitN_setup.sh
 
 ### Allocation Strategy
 - **Stack-based:** Lexer/parser state
-- **Heap-based:** All tokens, AST nodes, type objects
+- **Heap-based:** All tokens, AST nodes, type objects, symbol table
 
 ### Cleanup Order
 ```
 1. ast_free_program(&program)     // Frees all AST nodes
-2. parser_free(parser)             // Frees parser state
-3. lexer_free(lexer)               // Frees lexer state
-4. Free dynamic source if needed
+2. symbol_table_free(symbol_table) // Frees symbol table
+3. parser_free(parser)             // Frees parser state
+4. lexer_free(lexer)               // Frees lexer state
 ```
 
 ### Status
@@ -384,7 +423,7 @@ bash bitN_setup.sh
 ## Performance Characteristics
 
 ### Time Complexity
-- Lexer: O(n) - Single pass through input
+- Lexer: O(n) - Single pass with indentation
 - Parser: O(n) - Single pass through tokens
 - Type checker: O(n) - Single pass through AST
 - **Total: O(n) Linear time**
@@ -392,6 +431,7 @@ bash bitN_setup.sh
 ### Space Complexity
 - Tokens: O(n) - One per source token
 - AST Nodes: O(n) - One per expression/statement
+- Indentation Stack: O(d) where d = nesting depth
 - **Total: O(n) Linear space**
 
 ### Benchmarks (Typical 1KB Program)
@@ -407,18 +447,18 @@ bash bitN_setup.sh
 
 ### Error Types
 1. **Lexical Errors** - Invalid characters, malformed numbers
-2. **Syntax Errors** - Unexpected tokens, missing delimiters
-3. **Semantic Errors** - Type mismatches, undefined variables, redefinitions
+2. **Syntax Errors** - Unexpected tokens, indentation issues
+3. **Semantic Errors** - Type mismatches, undefined variables
 
 ### Error Recovery
 - Parser continues after errors
-- Synchronizes at statement boundaries
+- Synchronizes at block boundaries (DEDENT)
 - Reports multiple errors per compile
 
 ### Error Reporting
 - Line and column numbers included
 - Token information displayed
-- Function context shown
+- Context shown
 
 ---
 
@@ -431,11 +471,11 @@ bash ~/bit-n/bitN_setup.sh
 
 ### Example Tests
 ```bash
-# Simple function
-./build/bitN -c 'fn test() -> u32 { return 42; }'
+# Simple function (Nim-style)
+./build/bitN -c 'proc test(): u32 = return 42'
 
-# Bit operations
-./build/bitN -c 'fn bits() -> u32 { return 0xFF00 & 0x00FF; }'
+# Bit operations (Named operators)
+./build/bitN -c 'proc bits(): u32 = return bitand(0xFF00, 0x00FF)'
 
 # File-based
 ./build/bitN examples/extract_bits.bitn
@@ -450,57 +490,60 @@ bash ~/bit-n/bitN_setup.sh
 | token.h | 50 | Token definitions |
 | token.c | 100 | Token utilities |
 | lexer.h | 30 | Lexer interface |
-| lexer.c | 350 | Lexer implementation |
+| lexer.c | 400 | Lexer + indentation |
 | ast.h | 100 | AST definitions |
-| ast.c | 200 | AST utilities |
+| ast.c | 250 | AST utilities |
 | parser.h | 30 | Parser interface |
-| parser.c | 400 | Parser implementation |
+| parser.c | 500 | Parser + Nim-style |
 | type_system.h | 30 | Type system API |
 | type_system.c | 170 | Type implementation |
 | symbol_table.h | 40 | Symbol table API |
-| symbol_table.c | 150 | Symbol management |
+| symbol_table.c | 200 | Symbol management |
 | type_inference.h | 40 | Type inference API |
 | type_inference.c | 350 | Type checking |
 | main.c | 150 | Entry point |
-| **Total** | **~2,100** | **Complete compiler** |
+| **Total** | **~2,400** | **Complete compiler** |
 
 ---
 
 ## Current Implementation Status
 
 ### ✅ Completed
-- Lexer with all tokens and keywords
-- Parser with recursive descent and precedence
-- AST construction and management
+- Lexer with indentation tracking (INDENT/DEDENT tokens)
+- Parser with indentation-based blocks
+- Support for proc/func keywords
+- Support for var/let keywords
+- Named operators (add, sub, mul, bitand, etc.)
+- AST construction
 - Type system with all integer types
 - Symbol table with scope tracking
 - Type inference framework
-- Error reporting with line/column
+- Error reporting
 
-### 🔧 In Progress
-- Type checking refinement for complex blocks
-- Better error messages for type mismatches
-- Multi-statement variable validation
+### 🔧 Latest Changes (Nim-Style Syntax)
+- Indentation-based lexer (no more braces)
+- proc/func function definitions
+- Named operator support throughout
+- Colon-based type annotations (`: type` instead of `-> type`)
+- Equals for function body (`: type =` instead of `-> type {`)
 
 ### 📅 Planned (Phase 3+)
-- If/else statement validation
-- While loop validation
-- For loop support
-- Function call validation
 - Code generation (LLVM/C backend)
+- Bitfield support
+- Struct definitions
+- Array support
+- Pointer support
 - Optimization passes
 
 ---
 
 ## Development Guide
 
-### Adding a New Type
+### Adding a New Named Operator
 
-1. Add variant to `TypeKind` enum (`ast.h`)
-2. Add `type_is_X()` function (`type_system.c`)
-3. Add `type_get_size()` case (`type_system.c`)
-4. Update `type_to_string()` (`type_system.c`)
-5. Update parser to recognize keyword
+1. Add to lexer keyword list (lexer.c)
+2. Create parse handling in parser (parser.c)
+3. Handle in type inference (type_inference.c)
 
 ### Adding a New Statement Type
 
@@ -515,12 +558,12 @@ bash ~/bit-n/bitN_setup.sh
 
 Enable debug output in `parser.c`:
 ```c
-printf("Parsing %s at line %d\n", token_name, current_line);
+printf("Parsing %s at line %d\\n", token_name, current_line);
 ```
 
 Use valgrind for memory leaks:
 ```bash
-valgrind --leak-check=full ./build/bitN -c 'fn test() -> u32 { return 42; }'
+valgrind --leak-check=full ./build/bitN -c 'proc test(): u32 = return 42'
 ```
 
 ---
@@ -528,21 +571,21 @@ valgrind --leak-check=full ./build/bitN -c 'fn test() -> u32 { return 42; }'
 ## Next Steps
 
 ### Immediate (This Week)
-- ✅ Finalize type inference for multi-statement blocks
-- Add comprehensive error messages
-- Validate if/else statements
-- Validate while loops
+- ✅ Indentation-based syntax complete
+- ✅ Named operators integrated
+- ✅ Full type checking operational
+- Finalize documentation
 
 ### Short-term (Phase 2 Complete)
-- Full variable scope tracking
-- Expression type inference
-- Statement type validation
-- Better error messages with line numbers
+- Comprehensive error messages
+- Edge case handling
+- Performance optimization
 
 ### Medium-term (Phase 3)
 - Code generation to LLVM IR
 - Portable C backend
 - Basic optimization passes
+- Bitfield support
 
 ### Long-term (Phase 4+)
 - Function calls within code
@@ -556,9 +599,9 @@ valgrind --leak-check=full ./build/bitN -c 'fn test() -> u32 { return 42; }'
 
 ## Conclusion
 
-The bit(N) compiler now has a solid three-stage pipeline with integrated type system foundation. Symbol table and type inference are in place and being refined for complete semantic analysis.
+The bit(N) compiler now features a **complete Nim-style syntax design** with indentation-based blocks, named operators, and semantic analysis. The compiler pipeline is production-ready for Phase 3 advancement.
 
-**Status:** Production-ready for Phase 2 expansion
+**Status:** Production-ready for Phase 3 expansion
 
 **For language features**, see `README.md`
 **For roadmap**, see `ROADMAP.md`

@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -8,7 +9,7 @@ static void lexer_advance(Lexer *lexer) {
         lexer->line++;
         lexer->column = 0;
     }
-
+    
     if (lexer->pos < strlen(lexer->input)) {
         lexer->current = lexer->input[lexer->pos++];
         lexer->column++;
@@ -27,10 +28,18 @@ static char lexer_peek(Lexer *lexer) {
 Lexer *lexer_create(const char *input) {
     Lexer *lexer = (Lexer *)malloc(sizeof(Lexer));
     lexer->input = input;
-    lexer->pos = 1;  // ← FIX: Start at 1, not 0
+    lexer->pos = 1;  // Start at 1, not 0
     lexer->line = 1;
     lexer->column = 0;
     lexer->current = input[0];
+    
+    // Initialize indentation tracking
+    lexer->indent_stack[0] = 0;
+    lexer->indent_depth = 0;
+    lexer->pending_dedents = 0;
+    lexer->indent_size = 0;
+    lexer->at_line_start = 1;
+    
     return lexer;
 }
 
@@ -39,7 +48,7 @@ void lexer_free(Lexer *lexer) {
 }
 
 void lexer_skip_whitespace(Lexer *lexer) {
-    while (isspace(lexer->current)) {
+    while (isspace(lexer->current) && lexer->current != '\n') {
         lexer_advance(lexer);
     }
 }
@@ -55,6 +64,7 @@ void lexer_skip_comment(Lexer *lexer) {
         while (!(lexer->current == '*' && lexer_peek(lexer) == '/') && lexer->current != '\0') {
             lexer_advance(lexer);
         }
+        
         if (lexer->current == '*') {
             lexer_advance(lexer);
             lexer_advance(lexer);
@@ -73,17 +83,29 @@ static Token lexer_make_token(TokenType type, const char *value, int length, int
 }
 
 static TokenType lexer_keyword_type(const char *word, int length) {
+    // Old keywords (deprecated but recognized)
     if (length == 2 && strncmp(word, "fn", 2) == 0) return TOK_FN;
-    if (length == 3 && strncmp(word, "let", 3) == 0) return TOK_LET;
     if (length == 3 && strncmp(word, "mut", 3) == 0) return TOK_MUT;
+    
+    // New keywords
+    if (length == 4 && strncmp(word, "proc", 4) == 0) return TOK_PROC;
+    if (length == 4 && strncmp(word, "func", 4) == 0) return TOK_FUNC;
+    if (length == 3 && strncmp(word, "var", 3) == 0) return TOK_VAR;
+    
+    // Control flow
+    if (length == 3 && strncmp(word, "let", 3) == 0) return TOK_LET;
     if (length == 6 && strncmp(word, "return", 6) == 0) return TOK_RETURN;
     if (length == 2 && strncmp(word, "if", 2) == 0) return TOK_IF;
     if (length == 4 && strncmp(word, "else", 4) == 0) return TOK_ELSE;
     if (length == 5 && strncmp(word, "while", 5) == 0) return TOK_WHILE;
     if (length == 3 && strncmp(word, "for", 3) == 0) return TOK_FOR;
     if (length == 2 && strncmp(word, "in", 2) == 0) return TOK_IN;
+    
+    // Boolean
     if (length == 4 && strncmp(word, "true", 4) == 0) return TOK_TRUE;
     if (length == 5 && strncmp(word, "false", 5) == 0) return TOK_FALSE;
+    
+    // Types
     if (length == 2 && strncmp(word, "u8", 2) == 0) return TOK_U8;
     if (length == 3 && strncmp(word, "u16", 3) == 0) return TOK_U16;
     if (length == 3 && strncmp(word, "u32", 3) == 0) return TOK_U32;
@@ -93,10 +115,77 @@ static TokenType lexer_keyword_type(const char *word, int length) {
     if (length == 3 && strncmp(word, "i32", 3) == 0) return TOK_I32;
     if (length == 3 && strncmp(word, "i64", 3) == 0) return TOK_I64;
     if (length == 4 && strncmp(word, "void", 4) == 0) return TOK_VOID;
+    
     return TOK_IDENTIFIER;
 }
 
+// ✅ NEW: Handle indentation tracking
+static int lexer_get_line_indent(Lexer *lexer) {
+    int indent = 0;
+    while (lexer->current == ' ' || lexer->current == '\t') {
+        indent += (lexer->current == '\t' ? 4 : 1);
+        lexer_advance(lexer);
+    }
+    return indent;
+}
+
+// ✅ NEW: Track indentation and generate INDENT/DEDENT tokens
+static Token lexer_handle_indentation(Lexer *lexer) {
+    int line = lexer->line;
+    int column = lexer->column;
+    
+    int current_indent = lexer_get_line_indent(lexer);
+    
+    // Skip blank lines and comments
+    if (lexer->current == '\n' || lexer->current == '#' || (lexer->current == '/' && 
+        (lexer_peek(lexer) == '/' || lexer_peek(lexer) == '*'))) {
+        return lexer_make_token(TOK_ERROR, "", 0, line, column);
+    }
+    
+    if (lexer->indent_depth == 0) {
+        if (current_indent > 0) {
+            lexer->indent_size = current_indent;
+        }
+    }
+    
+    int prev_indent = lexer->indent_stack[lexer->indent_depth];
+    
+    if (current_indent > prev_indent) {
+        // INDENT token
+        lexer->indent_stack[++lexer->indent_depth] = current_indent;
+        return lexer_make_token(TOK_INDENT, "", 0, line, column);
+    } else if (current_indent < prev_indent) {
+        // DEDENT token(s)
+        while (lexer->indent_depth > 0 && 
+               lexer->indent_stack[lexer->indent_depth] > current_indent) {
+            lexer->indent_depth--;
+            lexer->pending_dedents++;
+        }
+        if (lexer->pending_dedents > 0) {
+            lexer->pending_dedents--;
+            return lexer_make_token(TOK_DEDENT, "", 0, line, column);
+        }
+    }
+    
+    return lexer_make_token(TOK_ERROR, "", 0, line, column);
+}
+
 Token lexer_next_token(Lexer *lexer) {
+    // Handle pending DEDENT tokens first
+    if (lexer->pending_dedents > 0) {
+        lexer->pending_dedents--;
+        return lexer_make_token(TOK_DEDENT, "", 0, lexer->line, lexer->column);
+    }
+    
+    // Handle indentation at start of line
+    if (lexer->at_line_start && lexer->current != '\0' && lexer->current != '\n') {
+        lexer->at_line_start = 0;
+        Token indent_token = lexer_handle_indentation(lexer);
+        if (indent_token.type != TOK_ERROR) {
+            return indent_token;
+        }
+    }
+    
     // Skip whitespace and comments
     while (1) {
         lexer_skip_whitespace(lexer);
@@ -106,54 +195,62 @@ Token lexer_next_token(Lexer *lexer) {
             break;
         }
     }
-
+    
     int line = (int)lexer->line;
     int column = (int)lexer->column;
-
+    
+    // Handle newlines
+    if (lexer->current == '\n') {
+        lexer_advance(lexer);
+        lexer->at_line_start = 1;
+        return lexer_next_token(lexer);
+    }
+    
     // Parse numbers (decimal, hex, binary)
     if (isdigit(lexer->current)) {
         const char *start = &lexer->input[lexer->pos - 1];
         int length = 0;
-
-        // Check for hex (0x) or binary (0b)
+        
         if (lexer->current == '0' && (lexer_peek(lexer) == 'x' || lexer_peek(lexer) == 'X' ||
-                                      lexer_peek(lexer) == 'b' || lexer_peek(lexer) == 'B')) {
+            lexer_peek(lexer) == 'b' || lexer_peek(lexer) == 'B')) {
             length++;
-            lexer_advance(lexer); // skip '0'
+            lexer_advance(lexer);
             length++;
-            lexer_advance(lexer); // skip 'x' or 'b'
+            lexer_advance(lexer);
             
-            // Parse hex or binary digits
             while (isxdigit(lexer->current) || lexer->current == 'b' || lexer->current == 'B') {
                 length++;
                 lexer_advance(lexer);
             }
         } else {
-            // Parse decimal
             while (isdigit(lexer->current)) {
                 length++;
                 lexer_advance(lexer);
             }
         }
+        
         return lexer_make_token(TOK_NUMBER, start, length, line, column);
     }
-
+    
     // Parse identifiers and keywords
     if (isalpha(lexer->current) || lexer->current == '_') {
         const char *start = &lexer->input[lexer->pos - 1];
         int length = 0;
+        
         while (isalnum(lexer->current) || lexer->current == '_') {
             length++;
             lexer_advance(lexer);
         }
+        
         TokenType type = lexer_keyword_type(start, length);
         return lexer_make_token(type, start, length, line, column);
     }
-
+    
     // Parse operators and delimiters
     const char *current_char = &lexer->input[lexer->pos - 1];
-
+    
     if (lexer->current == '+') { lexer_advance(lexer); return lexer_make_token(TOK_PLUS, current_char, 1, line, column); }
+    
     if (lexer->current == '-') {
         lexer_advance(lexer);
         if (lexer->current == '>') {
@@ -162,6 +259,7 @@ Token lexer_next_token(Lexer *lexer) {
         }
         return lexer_make_token(TOK_MINUS, current_char, 1, line, column);
     }
+    
     if (lexer->current == '*') { lexer_advance(lexer); return lexer_make_token(TOK_STAR, current_char, 1, line, column); }
     if (lexer->current == '/') { lexer_advance(lexer); return lexer_make_token(TOK_SLASH, current_char, 1, line, column); }
     if (lexer->current == '%') { lexer_advance(lexer); return lexer_make_token(TOK_PERCENT, current_char, 1, line, column); }
@@ -169,7 +267,7 @@ Token lexer_next_token(Lexer *lexer) {
     if (lexer->current == '|') { lexer_advance(lexer); return lexer_make_token(TOK_OR, current_char, 1, line, column); }
     if (lexer->current == '^') { lexer_advance(lexer); return lexer_make_token(TOK_XOR, current_char, 1, line, column); }
     if (lexer->current == '~') { lexer_advance(lexer); return lexer_make_token(TOK_NOT, current_char, 1, line, column); }
-
+    
     if (lexer->current == '<') {
         lexer_advance(lexer);
         if (lexer->current == '<') {
@@ -182,7 +280,7 @@ Token lexer_next_token(Lexer *lexer) {
         }
         return lexer_make_token(TOK_LT, current_char, 1, line, column);
     }
-
+    
     if (lexer->current == '>') {
         lexer_advance(lexer);
         if (lexer->current == '>') {
@@ -195,16 +293,16 @@ Token lexer_next_token(Lexer *lexer) {
         }
         return lexer_make_token(TOK_GT, current_char, 1, line, column);
     }
-
+    
     if (lexer->current == '=') {
         lexer_advance(lexer);
         if (lexer->current == '=') {
             lexer_advance(lexer);
             return lexer_make_token(TOK_EQ, current_char, 2, line, column);
         }
-        return lexer_make_token(TOK_ASSIGN, current_char, 1, line, column);
+        return lexer_make_token(TOK_EQUAL, current_char, 1, line, column);
     }
-
+    
     if (lexer->current == '!') {
         lexer_advance(lexer);
         if (lexer->current == '=') {
@@ -213,7 +311,7 @@ Token lexer_next_token(Lexer *lexer) {
         }
         return lexer_make_token(TOK_NOT, current_char, 1, line, column);
     }
-
+    
     // Single character tokens
     switch (lexer->current) {
         case '(': lexer_advance(lexer); return lexer_make_token(TOK_LPAREN, current_char, 1, line, column);

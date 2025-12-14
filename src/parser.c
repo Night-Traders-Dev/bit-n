@@ -1,8 +1,11 @@
 #include "parser.h"
-#include "lexer.h"
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
+
+// ============================================================================
+// PARSER CORE
+// ============================================================================
 
 Parser *parser_create(const char *input) {
     Parser *parser = (Parser *)malloc(sizeof(Parser));
@@ -14,12 +17,14 @@ Parser *parser_create(const char *input) {
 }
 
 void parser_free(Parser *parser) {
-    lexer_free(parser->lexer);
-    free(parser);
+    if (parser) {
+        lexer_free(parser->lexer);
+        free(parser);
+    }
 }
 
 void parser_error(Parser *parser, const char *message) {
-    fprintf(stderr, "Parser error at %d:%d: %s\n",
+    fprintf(stderr, "Parse Error at line %d, col %d: %s\n",
             parser->current.line, parser->current.column, message);
     parser->error = 1;
 }
@@ -34,451 +39,596 @@ static void parser_advance(Parser *parser) {
 }
 
 static int parser_match(Parser *parser, TokenType type) {
-    if (parser->current.type == type) {
+    return parser->current.type == type;
+}
+
+static int parser_expect(Parser *parser, TokenType type, const char *message) {
+    if (!parser_match(parser, type)) {
+        parser_error(parser, message);
+        return 0;
+    }
+    parser_advance(parser);
+    return 1;
+}
+
+static int parser_consume(Parser *parser, TokenType type) {
+    if (parser_match(parser, type)) {
         parser_advance(parser);
         return 1;
     }
     return 0;
 }
 
-static int parser_check(Parser *parser, TokenType type) {
-    return parser->current.type == type;
+// ============================================================================
+// OPERATOR NAME RECOGNITION (NEW FOR NIM-STYLE OPERATORS)
+// ============================================================================
+
+// ✅ Map operator names to binary operators
+static BinaryOp get_binary_operator_for_name(const char *name, int length) {
+    if (length == 3 && strncmp(name, "add", 3) == 0) return BOP_ADD;
+    if (length == 3 && strncmp(name, "sub", 3) == 0) return BOP_SUB;
+    if (length == 3 && strncmp(name, "mul", 3) == 0) return BOP_MUL;
+    if (length == 3 && strncmp(name, "div", 3) == 0) return BOP_DIV;
+    if (length == 3 && strncmp(name, "mod", 3) == 0) return BOP_MOD;
+    if (length == 6 && strncmp(name, "bitand", 6) == 0) return BOP_AND;
+    if (length == 5 && strncmp(name, "bitor", 5) == 0) return BOP_OR;
+    if (length == 6 && strncmp(name, "bitxor", 6) == 0) return BOP_XOR;
+    if (length == 3 && strncmp(name, "shl", 3) == 0) return BOP_LSHIFT;
+    if (length == 3 && strncmp(name, "shr", 3) == 0) return BOP_RSHIFT;
+    if (length == 2 && strncmp(name, "eq", 2) == 0) return BOP_EQ;
+    if (length == 2 && strncmp(name, "ne", 2) == 0) return BOP_NE;
+    if (length == 2 && strncmp(name, "lt", 2) == 0) return BOP_LT;
+    if (length == 2 && strncmp(name, "le", 2) == 0) return BOP_LE;
+    if (length == 2 && strncmp(name, "gt", 2) == 0) return BOP_GT;
+    if (length == 2 && strncmp(name, "ge", 2) == 0) return BOP_GE;
+    return -1;  // Not a binary operator name
 }
 
-static void parser_expect(Parser *parser, TokenType type, const char *message) {
-    if (!parser_match(parser, type)) {
-        parser_error(parser, message);
+// ✅ Map operator names to unary operators
+static UnaryOp get_unary_operator_for_name(const char *name, int length) {
+    if (length == 3 && strncmp(name, "neg", 3) == 0) return UOP_NEG;
+    if (length == 3 && strncmp(name, "not", 3) == 0) return UOP_NOT;
+    if (length == 6 && strncmp(name, "bitnot", 6) == 0) return UOP_BIT_NOT;
+    return -1;  // Not a unary operator name
+}
+
+// ============================================================================
+// TYPE PARSING
+// ============================================================================
+
+Type *parse_type(Parser *parser) {
+    TypeKind kind = TYPE_VOID;
+    
+    if (parser_match(parser, TOK_U8)) {
+        kind = TYPE_U8;
+    } else if (parser_match(parser, TOK_U16)) {
+        kind = TYPE_U16;
+    } else if (parser_match(parser, TOK_U32)) {
+        kind = TYPE_U32;
+    } else if (parser_match(parser, TOK_U64)) {
+        kind = TYPE_U64;
+    } else if (parser_match(parser, TOK_I8)) {
+        kind = TYPE_I8;
+    } else if (parser_match(parser, TOK_I16)) {
+        kind = TYPE_I16;
+    } else if (parser_match(parser, TOK_I32)) {
+        kind = TYPE_I32;
+    } else if (parser_match(parser, TOK_I64)) {
+        kind = TYPE_I64;
+    } else if (parser_match(parser, TOK_VOID)) {
+        kind = TYPE_VOID;
+    } else {
+        parser_error(parser, "Expected type annotation");
+        return NULL;
     }
+    
+    parser_advance(parser);
+    
+    Type *type = (Type *)malloc(sizeof(Type));
+    type->kind = kind;
+    return type;
 }
 
-static ASTExpr *parser_parse_expression(Parser *parser);
-static ASTStmt *parser_parse_statement(Parser *parser);
+// ============================================================================
+// EXPRESSION PARSING
+// ============================================================================
 
-static ASTExpr *parser_parse_primary(Parser *parser) {
-    switch (parser->current.type) {
-        case TOK_NUMBER: {
-            uint64_t value = 0;
-            if (strncmp(parser->current.value, "0x", 2) == 0 ||
-                strncmp(parser->current.value, "0X", 2) == 0) {
-                sscanf(parser->current.value, "%lx", &value);
-            } else if (strncmp(parser->current.value, "0b", 2) == 0 ||
-                       strncmp(parser->current.value, "0B", 2) == 0) {
-                const char *p = parser->current.value + 2;
-                while (*p == '0' || *p == '1') {
-                    value = (value << 1) | (*p - '0');
-                    p++;
-                }
-            } else {
-                sscanf(parser->current.value, "%lu", &value);
-            }
-            parser_advance(parser);
-            return ast_expr_number(value, TYPE_U32);
-        }
+// Forward declarations
+ASTExpr *parse_expression(Parser *parser);
+ASTExpr *parse_primary(Parser *parser);
+ASTExpr *parse_unary(Parser *parser);
+ASTExpr *parse_multiplicative(Parser *parser);
+ASTExpr *parse_additive(Parser *parser);
+ASTExpr *parse_shift(Parser *parser);
+ASTExpr *parse_comparison(Parser *parser);
+ASTExpr *parse_equality(Parser *parser);
+ASTExpr *parse_bitwise_and(Parser *parser);
+ASTExpr *parse_bitwise_xor(Parser *parser);
+ASTExpr *parse_bitwise_or(Parser *parser);
 
-        case TOK_IDENTIFIER:
-        // ✅ Copy the identifier from token
-        char *name = malloc(parser->current.length + 1);
-        strncpy(name, parser->current.value, parser->current.length);
-        name[parser->current.length] = '\0';
+ASTExpr *parse_primary(Parser *parser) {
+    // Numbers
+    if (parser_match(parser, TOK_NUMBER)) {
+        uint64_t value = strtoull(parser->current.value, NULL, 0);
         parser_advance(parser);
-        ASTExpr *expr = ast_expr_identifier(name);
-        free(name);  // ast_expr_identifier will copy it
+        return ast_expr_number(value, TYPE_U32);
+    }
+    
+    // Identifiers (variables, function calls, or operator names)
+    if (parser_match(parser, TOK_IDENTIFIER)) {
+        const char *name = parser->current.value;
+        int name_len = parser->current.length;
+        parser_advance(parser);
+        
+        // Check if it's a unary operator name: neg(x), not(x), bitnot(x)
+        if (parser_match(parser, TOK_LPAREN)) {
+            UnaryOp unary_op = get_unary_operator_for_name(name, name_len);
+            if (unary_op >= 0) {
+                // It's a unary operator function call
+                parser_advance(parser);  // consume '('
+                ASTExpr *arg = parse_expression(parser);
+                parser_expect(parser, TOK_RPAREN, "Expected ')'");
+                return ast_expr_unary_op(unary_op, arg);
+            }
+            
+            // It's a regular function call
+            parser_advance(parser);  // consume '('
+            
+            // Parse arguments
+            ASTExpr **args = NULL;
+            size_t arg_count = 0;
+            size_t arg_capacity = 10;
+            args = malloc(arg_capacity * sizeof(ASTExpr*));
+            
+            if (!parser_match(parser, TOK_RPAREN)) {
+                while (1) {
+                    if (arg_count >= arg_capacity) {
+                        arg_capacity *= 2;
+                        args = realloc(args, arg_capacity * sizeof(ASTExpr*));
+                    }
+                    args[arg_count++] = parse_expression(parser);
+                    
+                    if (!parser_consume(parser, TOK_COMMA)) {
+                        break;
+                    }
+                }
+            }
+            
+            parser_expect(parser, TOK_RPAREN, "Expected ')' after arguments");
+            
+            // Check if it's a binary operator function: add(x, y), bitand(x, y), etc
+            if (arg_count == 2) {
+                BinaryOp binop = get_binary_operator_for_name(name, name_len);
+                if (binop >= 0) {
+                    // Create binary operator AST node
+                    ASTExpr *result = ast_expr_binary_op(binop, args[0], args[1]);
+                    free(args);
+                    return result;
+                }
+            }
+            
+            // Regular function call
+            ASTExpr *func = ast_expr_identifier(name);
+            return ast_expr_call(func, args, arg_count);
+        }
+        
+        // Simple identifier (variable reference)
+        return ast_expr_identifier(name);
+    }
+    
+    // Boolean literals
+    if (parser_match(parser, TOK_TRUE)) {
+        parser_advance(parser);
+        return ast_expr_true();
+    }
+    if (parser_match(parser, TOK_FALSE)) {
+        parser_advance(parser);
+        return ast_expr_false();
+    }
+    
+    // Parenthesized expression
+    if (parser_match(parser, TOK_LPAREN)) {
+        parser_advance(parser);
+        ASTExpr *expr = parse_expression(parser);
+        parser_expect(parser, TOK_RPAREN, "Expected ')' after expression");
         return expr;
-
-
-        case TOK_TRUE:
-            parser_advance(parser);
-            return ast_expr_true();
-
-        case TOK_FALSE:
-            parser_advance(parser);
-            return ast_expr_false();
-
-        case TOK_LPAREN: {
-            parser_advance(parser);
-            ASTExpr *expr = parser_parse_expression(parser);
-            parser_expect(parser, TOK_RPAREN, "Expected ')'");
-            return expr;
-        }
-
-        case TOK_EOF:
-            parser_error(parser, "Unexpected end of file");
-            return ast_expr_number(0, TYPE_U32);
-
-        default:
-            parser_error(parser, "Unexpected token in primary expression");
-            parser_advance(parser);
-            return ast_expr_number(0, TYPE_U32);
     }
+    
+    parser_error(parser, "Expected primary expression");
+    return NULL;
 }
 
-// NEW: Postfix expression parsing for bit slices [start:end]
-static ASTExpr *parser_parse_postfix(Parser *parser) {
-    ASTExpr *expr = parser_parse_primary(parser);
-    
-    // Handle postfix operations: subscripts [start:end]
-    while (parser_check(parser, TOK_LBRACKET)) {
-        parser_advance(parser);  // consume '['
-        
-        // Parse start index
-        uint64_t start = 0;
-        if (parser_check(parser, TOK_NUMBER)) {
-            start = strtoull(parser->current.value, NULL, 10);
-            parser_advance(parser);
-        } else {
-            parser_error(parser, "Expected number for bit slice start");
-        }
-        
-        // Expect colon
-        parser_expect(parser, TOK_COLON, "Expected ':' in bit slice");
-        
-        // Parse end index
-        uint64_t end = 0;
-        if (parser_check(parser, TOK_NUMBER)) {
-            end = strtoull(parser->current.value, NULL, 10);
-            parser_advance(parser);
-        } else {
-            parser_error(parser, "Expected number for bit slice end");
-        }
-        
-        // Expect closing bracket
-        parser_expect(parser, TOK_RBRACKET, "Expected ']' after bit slice");
-        
-        // Create bit slice expression
-        expr = ast_expr_bit_slice(expr, start, end);
-    }
-    
-    return expr;
-}
-
-static ASTExpr *parser_parse_unary(Parser *parser) {
-    if (parser_match(parser, TOK_NOT)) {
-        return ast_expr_unary_op(UOP_NOT, parser_parse_unary(parser));
-    }
-    
+ASTExpr *parse_unary(Parser *parser) {
+    // Unary operators: -, ~, !
     if (parser_match(parser, TOK_MINUS)) {
-        return ast_expr_unary_op(UOP_NEG, parser_parse_unary(parser));
+        parser_advance(parser);
+        ASTExpr *operand = parse_unary(parser);
+        return ast_expr_unary_op(UOP_NEG, operand);
+    }
+    if (parser_match(parser, TOK_NOT)) {
+        parser_advance(parser);
+        ASTExpr *operand = parse_unary(parser);
+        return ast_expr_unary_op(UOP_NOT, operand);
+    }
+    if (parser_match(parser, TOK_XOR)) {
+        parser_advance(parser);
+        ASTExpr *operand = parse_unary(parser);
+        return ast_expr_unary_op(UOP_BIT_NOT, operand);
     }
     
-    return parser_parse_postfix(parser);  // CHANGED: was parser_parse_primary
+    return parse_primary(parser);
 }
 
-static ASTExpr *parser_parse_multiplicative(Parser *parser) {
-    ASTExpr *expr = parser_parse_unary(parser);
-    while (parser->current.type == TOK_STAR || parser->current.type == TOK_SLASH) {
+ASTExpr *parse_multiplicative(Parser *parser) {
+    ASTExpr *left = parse_unary(parser);
+    
+    while (parser_match(parser, TOK_STAR) || parser_match(parser, TOK_SLASH) || parser_match(parser, TOK_PERCENT)) {
         BinaryOp op;
         if (parser_match(parser, TOK_STAR)) {
             op = BOP_MUL;
-        } else {
-            parser_match(parser, TOK_SLASH);
+        } else if (parser_match(parser, TOK_SLASH)) {
             op = BOP_DIV;
-        }
-        ASTExpr *right = parser_parse_unary(parser);
-        expr = ast_expr_binary_op(op, expr, right);
-    }
-    return expr;
-}
-
-static ASTExpr *parser_parse_additive(Parser *parser) {
-    ASTExpr *expr = parser_parse_multiplicative(parser);
-    while (parser->current.type == TOK_PLUS || parser->current.type == TOK_MINUS) {
-        BinaryOp op;
-        if (parser_match(parser, TOK_PLUS)) {
-            op = BOP_ADD;
         } else {
-            parser_match(parser, TOK_MINUS);
-            op = BOP_SUB;
+            op = BOP_MOD;
         }
-        ASTExpr *right = parser_parse_multiplicative(parser);
-        expr = ast_expr_binary_op(op, expr, right);
+        parser_advance(parser);
+        ASTExpr *right = parse_unary(parser);
+        left = ast_expr_binary_op(op, left, right);
     }
-    return expr;
+    
+    return left;
 }
 
-static ASTExpr *parser_parse_shift(Parser *parser) {
-    ASTExpr *expr = parser_parse_additive(parser);
-    while (parser->current.type == TOK_LSHIFT || parser->current.type == TOK_RSHIFT) {
+ASTExpr *parse_additive(Parser *parser) {
+    ASTExpr *left = parse_multiplicative(parser);
+    
+    while (parser_match(parser, TOK_PLUS) || parser_match(parser, TOK_MINUS)) {
+        BinaryOp op = parser_match(parser, TOK_PLUS) ? BOP_ADD : BOP_SUB;
+        parser_advance(parser);
+        ASTExpr *right = parse_multiplicative(parser);
+        left = ast_expr_binary_op(op, left, right);
+    }
+    
+    return left;
+}
+
+ASTExpr *parse_shift(Parser *parser) {
+    ASTExpr *left = parse_additive(parser);
+    
+    while (parser_match(parser, TOK_LSHIFT) || parser_match(parser, TOK_RSHIFT)) {
+        BinaryOp op = parser_match(parser, TOK_LSHIFT) ? BOP_LSHIFT : BOP_RSHIFT;
+        parser_advance(parser);
+        ASTExpr *right = parse_additive(parser);
+        left = ast_expr_binary_op(op, left, right);
+    }
+    
+    return left;
+}
+
+ASTExpr *parse_comparison(Parser *parser) {
+    ASTExpr *left = parse_shift(parser);
+    
+    while (parser_match(parser, TOK_LT) || parser_match(parser, TOK_LE) ||
+           parser_match(parser, TOK_GT) || parser_match(parser, TOK_GE)) {
         BinaryOp op;
-        if (parser_match(parser, TOK_LSHIFT)) {
-            op = BOP_LSHIFT;
-        } else {
-            parser_match(parser, TOK_RSHIFT);
-            op = BOP_RSHIFT;
-        }
-        ASTExpr *right = parser_parse_additive(parser);
-        expr = ast_expr_binary_op(op, expr, right);
+        if (parser_match(parser, TOK_LT)) op = BOP_LT;
+        else if (parser_match(parser, TOK_LE)) op = BOP_LE;
+        else if (parser_match(parser, TOK_GT)) op = BOP_GT;
+        else op = BOP_GE;
+        
+        parser_advance(parser);
+        ASTExpr *right = parse_shift(parser);
+        left = ast_expr_binary_op(op, left, right);
     }
-    return expr;
+    
+    return left;
 }
 
-static ASTExpr *parser_parse_comparison(Parser *parser) {
-    ASTExpr *expr = parser_parse_shift(parser);
-    while (parser->current.type == TOK_LT || parser->current.type == TOK_GT ||
-           parser->current.type == TOK_LE || parser->current.type == TOK_GE) {
-        BinaryOp op;
-        if (parser_match(parser, TOK_LT)) {
-            op = BOP_LT;
-        } else if (parser_match(parser, TOK_GT)) {
-            op = BOP_GT;
-        } else if (parser_match(parser, TOK_LE)) {
-            op = BOP_LE;
-        } else {
-            parser_match(parser, TOK_GE);
-            op = BOP_GE;
-        }
-        ASTExpr *right = parser_parse_shift(parser);
-        expr = ast_expr_binary_op(op, expr, right);
+ASTExpr *parse_equality(Parser *parser) {
+    ASTExpr *left = parse_comparison(parser);
+    
+    while (parser_match(parser, TOK_EQ) || parser_match(parser, TOK_NE)) {
+        BinaryOp op = parser_match(parser, TOK_EQ) ? BOP_EQ : BOP_NE;
+        parser_advance(parser);
+        ASTExpr *right = parse_comparison(parser);
+        left = ast_expr_binary_op(op, left, right);
     }
-    return expr;
+    
+    return left;
 }
 
-static ASTExpr *parser_parse_equality(Parser *parser) {
-    ASTExpr *expr = parser_parse_comparison(parser);
-    while (parser->current.type == TOK_EQ || parser->current.type == TOK_NE) {
-        BinaryOp op;
-        if (parser_match(parser, TOK_EQ)) {
-            op = BOP_EQ;
-        } else {
-            parser_match(parser, TOK_NE);
-            op = BOP_NE;
-        }
-        ASTExpr *right = parser_parse_comparison(parser);
-        expr = ast_expr_binary_op(op, expr, right);
-    }
-    return expr;
-}
-
-static ASTExpr *parser_parse_bitwise_and(Parser *parser) {
-    ASTExpr *expr = parser_parse_equality(parser);
+ASTExpr *parse_bitwise_and(Parser *parser) {
+    ASTExpr *left = parse_equality(parser);
+    
     while (parser_match(parser, TOK_AND)) {
-        ASTExpr *right = parser_parse_equality(parser);
-        expr = ast_expr_binary_op(BOP_AND, expr, right);
+        parser_advance(parser);
+        ASTExpr *right = parse_equality(parser);
+        left = ast_expr_binary_op(BOP_AND, left, right);
     }
-    return expr;
+    
+    return left;
 }
 
-static ASTExpr *parser_parse_bitwise_or(Parser *parser) {
-    ASTExpr *expr = parser_parse_bitwise_and(parser);
+ASTExpr *parse_bitwise_xor(Parser *parser) {
+    ASTExpr *left = parse_bitwise_and(parser);
+    
+    while (parser_match(parser, TOK_XOR)) {
+        parser_advance(parser);
+        ASTExpr *right = parse_bitwise_and(parser);
+        left = ast_expr_binary_op(BOP_XOR, left, right);
+    }
+    
+    return left;
+}
+
+ASTExpr *parse_bitwise_or(Parser *parser) {
+    ASTExpr *left = parse_bitwise_xor(parser);
+    
     while (parser_match(parser, TOK_OR)) {
-        ASTExpr *right = parser_parse_bitwise_and(parser);
-        expr = ast_expr_binary_op(BOP_OR, expr, right);
+        parser_advance(parser);
+        ASTExpr *right = parse_bitwise_xor(parser);
+        left = ast_expr_binary_op(BOP_OR, left, right);
     }
-    return expr;
+    
+    return left;
 }
 
-static ASTExpr *parser_parse_expression(Parser *parser) {
-    return parser_parse_bitwise_or(parser);
+ASTExpr *parse_expression(Parser *parser) {
+    return parse_bitwise_or(parser);
 }
 
-static TypeKind parser_parse_type(Parser *parser) {
-    if (parser_match(parser, TOK_U32)) {
-        return TYPE_U32;
-    } else if (parser_match(parser, TOK_U8)) {
-        return TYPE_U8;
-    } else if (parser_match(parser, TOK_U16)) {
-        return TYPE_U16;
-    } else if (parser_match(parser, TOK_U64)) {
-        return TYPE_U64;
-    } else if (parser_match(parser, TOK_I8)) {
-        return TYPE_I8;
-    } else if (parser_match(parser, TOK_I16)) {
-        return TYPE_I16;
-    } else if (parser_match(parser, TOK_I32)) {
-        return TYPE_I32;
-    } else if (parser_match(parser, TOK_I64)) {
-        return TYPE_I64;
-    } else if (parser_match(parser, TOK_VOID)) {
-        return TYPE_VOID;
+// ============================================================================
+// STATEMENT PARSING
+// ============================================================================
+
+ASTStmt *parse_block(Parser *parser);
+ASTStmt *parse_statement(Parser *parser);
+
+// ✅ NEW: Parse indentation-based block
+ASTStmt *parse_block(Parser *parser) {
+    // Called after seeing INDENT token
+    if (!parser_match(parser, TOK_INDENT)) {
+        parser_error(parser, "Expected INDENT token");
+        return NULL;
     }
-    parser_error(parser, "Expected type");
-    return TYPE_U32;
-}
-
-static ASTStmt *parser_parse_statement(Parser *parser) {
-    if (parser_match(parser, TOK_RETURN)) {
-        ASTExpr *value = NULL;
-        if (!parser_check(parser, TOK_SEMICOLON) && !parser_check(parser, TOK_RBRACE)) {
-            value = parser_parse_expression(parser);
+    parser_advance(parser);  // consume INDENT
+    
+    ASTStmt **statements = NULL;
+    size_t count = 0;
+    size_t capacity = 10;
+    statements = malloc(capacity * sizeof(ASTStmt*));
+    
+    // Parse statements until DEDENT
+    while (!parser_match(parser, TOK_DEDENT) && !parser_match(parser, TOK_EOF) && !parser_has_error(parser)) {
+        ASTStmt *stmt = parse_statement(parser);
+        if (stmt) {
+            if (count >= capacity) {
+                capacity *= 2;
+                statements = realloc(statements, capacity * sizeof(ASTStmt*));
+            }
+            statements[count++] = stmt;
         }
-        parser_match(parser, TOK_SEMICOLON);
+        
+        // Skip optional semicolons
+        while (parser_consume(parser, TOK_SEMICOLON)) {
+            // Continue
+        }
+    }
+    
+    return ast_stmt_block(statements, count);
+}
+
+ASTStmt *parse_statement(Parser *parser) {
+    // Variable declaration: let x: Type = init
+    if (parser_match(parser, TOK_LET)) {
+        parser_advance(parser);
+        
+        if (!parser_match(parser, TOK_IDENTIFIER)) {
+            parser_error(parser, "Expected variable name");
+            return NULL;
+        }
+        const char *name = parser->current.value;
+        parser_advance(parser);
+        
+        parser_expect(parser, TOK_COLON, "Expected ':' after variable name");
+        Type *type = parse_type(parser);
+        
+        ASTExpr *init = NULL;
+        if (parser_consume(parser, TOK_ASSIGN)) {
+            init = parse_expression(parser);
+        }
+        
+        // Optional semicolon
+        parser_consume(parser, TOK_SEMICOLON);
+        
+        return ast_stmt_var_decl(name, type, init, 0);  // 0 = immutable
+    }
+    
+    // ✅ NEW: Mutable variable declaration: var x: Type = init
+    if (parser_match(parser, TOK_VAR)) {
+        parser_advance(parser);
+        
+        if (!parser_match(parser, TOK_IDENTIFIER)) {
+            parser_error(parser, "Expected variable name");
+            return NULL;
+        }
+        const char *name = parser->current.value;
+        parser_advance(parser);
+        
+        parser_expect(parser, TOK_COLON, "Expected ':' after variable name");
+        Type *type = parse_type(parser);
+        
+        ASTExpr *init = NULL;
+        if (parser_consume(parser, TOK_ASSIGN)) {
+            init = parse_expression(parser);
+        }
+        
+        // Optional semicolon
+        parser_consume(parser, TOK_SEMICOLON);
+        
+        return ast_stmt_var_decl(name, type, init, 1);  // 1 = mutable
+    }
+    
+    // Return statement
+    if (parser_match(parser, TOK_RETURN)) {
+        parser_advance(parser);
+        ASTExpr *value = NULL;
+        if (!parser_match(parser, TOK_SEMICOLON) && !parser_match(parser, TOK_DEDENT) && !parser_match(parser, TOK_EOF)) {
+            value = parse_expression(parser);
+        }
+        parser_consume(parser, TOK_SEMICOLON);
         return ast_stmt_return(value);
     }
-
-    if (parser_match(parser, TOK_LBRACE)) {
-        ASTStmt **statements = NULL;
-        size_t stmt_count = 0;
-        while (!parser_check(parser, TOK_RBRACE) && !parser_check(parser, TOK_EOF)) {
-            statements = (ASTStmt **)realloc(statements, (stmt_count + 1) * sizeof(ASTStmt *));
-            statements[stmt_count++] = parser_parse_statement(parser);
-        }
-        parser_expect(parser, TOK_RBRACE, "Expected '}'");
-        return ast_stmt_block(statements, stmt_count);
-    }
-
-    if (parser_match(parser, TOK_LET)) {
-        const char *name = parser->current.value;
-        parser_expect(parser, TOK_IDENTIFIER, "Expected variable name");
-        parser_expect(parser, TOK_COLON, "Expected ':'");
-        TypeKind kind = parser_parse_type(parser);
-        Type *type = (Type *)malloc(sizeof(Type));
-        type->kind = kind;
-        parser_expect(parser, TOK_ASSIGN, "Expected '='");
-        ASTExpr *init = parser_parse_expression(parser);
-        parser_match(parser, TOK_SEMICOLON);
-        return ast_stmt_var_decl(name, type, init, 0);
-    }
-
-    if (parser_match(parser, TOK_MUT)) {
-        const char *name = parser->current.value;
-        parser_expect(parser, TOK_IDENTIFIER, "Expected variable name");
-        parser_expect(parser, TOK_COLON, "Expected ':'");
-        TypeKind kind = parser_parse_type(parser);
-        Type *type = (Type *)malloc(sizeof(Type));
-        type->kind = kind;
-        parser_expect(parser, TOK_ASSIGN, "Expected '='");
-        ASTExpr *init = parser_parse_expression(parser);
-        parser_match(parser, TOK_SEMICOLON);
-        return ast_stmt_var_decl(name, type, init, 1);
-    }
-
+    
+    // If statement: if condition: block
     if (parser_match(parser, TOK_IF)) {
-        parser_expect(parser, TOK_LPAREN, "Expected '('");
-        parser_parse_expression(parser);
-        parser_expect(parser, TOK_RPAREN, "Expected ')'");
-        ASTStmt *then_stmt = parser_parse_statement(parser);
-        if (parser_match(parser, TOK_ELSE)) {
-            parser_parse_statement(parser);
-        }
-        return then_stmt;
-    }
-
-    if (parser_match(parser, TOK_WHILE)) {
-        parser_expect(parser, TOK_LPAREN, "Expected '('");
-        parser_parse_expression(parser);
-        parser_expect(parser, TOK_RPAREN, "Expected ')'");
-        ASTStmt *body = parser_parse_statement(parser);
-        return body;
-    }
-
-    if (parser_match(parser, TOK_FOR)) {
-        parser_expect(parser, TOK_LPAREN, "Expected '('");
-        ASTStmt *init = NULL;
-        if (parser_check(parser, TOK_LET)) {
-            init = parser_parse_statement(parser);
-        } else if (!parser_check(parser, TOK_SEMICOLON)) {
-            ASTExpr *expr = parser_parse_expression(parser);
-            parser_match(parser, TOK_SEMICOLON);
-            init = ast_stmt_expr(expr);
-        } else {
-            parser_match(parser, TOK_SEMICOLON);
-        }
-
-        ASTExpr *condition = NULL;
-        if (!parser_check(parser, TOK_SEMICOLON)) {
-            condition = parser_parse_expression(parser);
-        }
-        parser_expect(parser, TOK_SEMICOLON, "Expected ';'");
-
-        ASTExpr *increment = NULL;
-        if (!parser_check(parser, TOK_RPAREN)) {
-            increment = parser_parse_expression(parser);
-        }
-        parser_expect(parser, TOK_RPAREN, "Expected ')'");
-        ASTStmt *body = parser_parse_statement(parser);
-        return body;
-    }
-
-    ASTExpr *expr = parser_parse_expression(parser);
-    parser_match(parser, TOK_SEMICOLON);
-    return ast_stmt_expr(expr);
-}
-
-static void parser_parse_parameters(Parser *parser, 
-                                   const char **param_names,
-                                   Type **param_types,
-                                   size_t *param_count) {
-    *param_count = 0;
-    
-    if (parser_check(parser, TOK_RPAREN)) {
-        return;
-    }
-
-    while (1) {
-        if (!parser_check(parser, TOK_IDENTIFIER)) {
-            parser_error(parser, "Expected parameter name");
-            break;
-        }
-        param_names[*param_count] = parser->current.value;
         parser_advance(parser);
-
-        parser_expect(parser, TOK_COLON, "Expected ':' after parameter name");
-
-        TypeKind kind = parser_parse_type(parser);
-        Type *type = (Type *)malloc(sizeof(Type));
-        type->kind = kind;
-        param_types[*param_count] = type;
-
-        (*param_count)++;
-
-        if (!parser_match(parser, TOK_COMMA)) {
-            break;
+        parse_expression(parser);  // condition (parsed but not used for now)
+        parser_expect(parser, TOK_COLON, "Expected ':' after if condition");
+        ASTStmt *body = parse_block(parser);
+        
+        if (parser_match(parser, TOK_DEDENT)) {
+            parser_advance(parser);
         }
+        
+        // TODO: Handle else clause
+        return body;  // Simplified
     }
-}
-
-static ASTFunctionDef *parser_parse_function(Parser *parser) {
-    parser_expect(parser, TOK_FN, "Expected 'fn'");
-    const char *name = parser->current.value;
-    parser_expect(parser, TOK_IDENTIFIER, "Expected function name");
-    parser_expect(parser, TOK_LPAREN, "Expected '('");
-
-    const char *param_names[64];
-    Type *param_types[64];
-    size_t param_count = 0;
-    parser_parse_parameters(parser, param_names, param_types, &param_count);
-
-    parser_expect(parser, TOK_RPAREN, "Expected ')'");
-
-    Type *return_type = (Type *)malloc(sizeof(Type));
-    return_type->kind = TYPE_U32;
-
-    if (parser_match(parser, TOK_ARROW)) {
-        return_type->kind = parser_parse_type(parser);
-    }
-
-    parser_expect(parser, TOK_LBRACE, "Expected '{'");
-
-    ASTStmt **statements = NULL;
-    size_t stmt_count = 0;
-    while (!parser_check(parser, TOK_RBRACE) && !parser_check(parser, TOK_EOF)) {
-        statements = (ASTStmt **)realloc(statements, (stmt_count + 1) * sizeof(ASTStmt *));
-        statements[stmt_count++] = parser_parse_statement(parser);
-    }
-
-    parser_expect(parser, TOK_RBRACE, "Expected '}'");
-
-    ASTStmt *body = ast_stmt_block(statements, stmt_count);
-
-    return ast_function_def(name, return_type, (char **)param_names, param_types, param_count, body);
-}
-
-ASTProgram *parser_parse_program(Parser *parser) {
-    ASTProgram *program = ast_program_create();
     
-    while (!parser_check(parser, TOK_EOF)) {
-        if (parser_check(parser, TOK_FN)) {
-            ASTFunctionDef *func = parser_parse_function(parser);
-            ast_program_add_function(program, func);
-        } else {
-            parser_error(parser, "Expected function definition");
-            while (!parser_check(parser, TOK_FN) && !parser_check(parser, TOK_EOF)) {
-                parser_advance(parser);
+    // While statement: while condition: block
+    if (parser_match(parser, TOK_WHILE)) {
+        parser_advance(parser);
+        parse_expression(parser);  // condition (parsed but not used for now)
+        parser_expect(parser, TOK_COLON, "Expected ':' after while condition");
+        ASTStmt *body = parse_block(parser);
+        
+        if (parser_match(parser, TOK_DEDENT)) {
+            parser_advance(parser);
+        }
+        
+        return body;  // Simplified
+    }
+    
+    // Expression statement
+    ASTExpr *expr = parse_expression(parser);
+    if (expr) {
+        parser_consume(parser, TOK_SEMICOLON);
+        return ast_stmt_expr(expr);
+    }
+    
+    return NULL;
+}
+
+// ============================================================================
+// FUNCTION PARSING (UPDATED FOR NIM-STYLE SYNTAX)
+// ============================================================================
+
+// ✅ NEW: Parse proc/func keywords
+ASTFunctionDef *parse_function(Parser *parser) {
+    // Expect proc or func
+    if (!parser_match(parser, TOK_PROC) && !parser_match(parser, TOK_FUNC)) {
+        parser_error(parser, "Expected 'proc' or 'func'");
+        return NULL;
+    }
+    
+    parser_advance(parser);  // consume proc/func
+    
+    // Get function name
+    if (!parser_match(parser, TOK_IDENTIFIER)) {
+        parser_error(parser, "Expected function name");
+        return NULL;
+    }
+    const char *name = parser->current.value;
+    parser_advance(parser);
+    
+    // Expect '('
+    parser_expect(parser, TOK_LPAREN, "Expected '(' after function name");
+    
+    // Parse parameters
+    char **param_names = NULL;
+    Type **param_types = NULL;
+    size_t param_count = 0;
+    size_t param_capacity = 10;
+    
+    param_names = malloc(param_capacity * sizeof(char*));
+    param_types = malloc(param_capacity * sizeof(Type*));
+    
+    if (!parser_match(parser, TOK_RPAREN)) {
+        while (1) {
+            if (!parser_match(parser, TOK_IDENTIFIER)) {
+                parser_error(parser, "Expected parameter name");
+                break;
             }
-            if (parser_check(parser, TOK_EOF)) {
+            const char *param_name = parser->current.value;
+            parser_advance(parser);
+            
+            parser_expect(parser, TOK_COLON, "Expected ':' after parameter name");
+            Type *param_type = parse_type(parser);
+            
+            if (param_count >= param_capacity) {
+                param_capacity *= 2;
+                param_names = realloc(param_names, param_capacity * sizeof(char*));
+                param_types = realloc(param_types, param_capacity * sizeof(Type*));
+            }
+            param_names[param_count] = (char*)param_name;
+            param_types[param_count] = param_type;
+            param_count++;
+            
+            if (!parser_consume(parser, TOK_COMMA)) {
                 break;
             }
         }
     }
+    
+    // Expect ')'
+    parser_expect(parser, TOK_RPAREN, "Expected ')' after parameters");
+    
+    // Expect ':' (return type annotation start)
+    parser_expect(parser, TOK_COLON, "Expected ':' before return type");
+    
+    // Parse return type
+    Type *return_type = parse_type(parser);
+    
+    // Expect '=' (block start)
+    parser_expect(parser, TOK_EQUAL, "Expected '=' before function body");
+    
+    // Parse body (indentation-based block)
+    ASTStmt *body = parse_block(parser);
+    
+    // Expect DEDENT
+    if (parser_match(parser, TOK_DEDENT)) {
+        parser_advance(parser);
+    }
+    
+    return ast_function_def(name, return_type, param_names, param_types, param_count, body);
+}
 
+// ============================================================================
+// PROGRAM PARSING
+// ============================================================================
+
+ASTProgram *parser_parse_program(Parser *parser) {
+    ASTProgram *program = ast_program_create();
+    
+    while (!parser_match(parser, TOK_EOF) && !parser_has_error(parser)) {
+        // Skip any INDENT/DEDENT at top level
+        if (parser_match(parser, TOK_INDENT) || parser_match(parser, TOK_DEDENT) ||
+            parser_match(parser, TOK_SEMICOLON)) {
+            parser_advance(parser);
+            continue;
+        }
+        
+        // Parse function
+        if (parser_match(parser, TOK_PROC) || parser_match(parser, TOK_FUNC)) {
+            ASTFunctionDef *func = parse_function(parser);
+            if (func) {
+                ast_program_add_function(program, func);
+            }
+        } else {
+            parser_error(parser, "Expected function definition");
+            break;
+        }
+    }
+    
     return program;
 }

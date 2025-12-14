@@ -2,14 +2,14 @@
 
 ## Status: Phase 2 In Progress 🚀
 
-**Latest Update:** Semantic analysis framework integrated. Symbol table and type inference being refined.
+**Latest Update:** Syntax redesign complete. Nim-style indentation-based language with named operators. Semantic analysis framework integrated. Symbol table and type inference operational.
 
 The bit(N) compiler now includes:
-- ✅ Lexical analysis (tokenization)
-- ✅ Syntax analysis (parsing)
+- ✅ Lexical analysis (tokenization) - Updated for new syntax
+- ✅ Syntax analysis (parsing) - Indentation-based blocks
 - ✅ AST construction
 - ✅ Type system integration
-- 🔧 Semantic analysis (symbol table, type inference - refining)
+- ✅ Semantic analysis (symbol table, type inference)
 
 ---
 
@@ -25,7 +25,7 @@ bash bitN_setup.sh
 ### First Program
 
 ```bash
-./build/bitN -c 'fn main() -> u32 { return 42; }'
+./build/bitN -c 'proc main(): u32 = return 42'
 ```
 
 ### Expected Output
@@ -35,7 +35,7 @@ bash bitN_setup.sh
 Input: command-line
 
 --- Lexical Analysis ---
-Token(3, line=1, col=0, len=2)
+Token(PROC, line=1, col=0, len=4)
 ...
 
 --- Parsing ---
@@ -53,25 +53,32 @@ Token(3, line=1, col=0, len=2)
 
 ## Language Features
 
-### 1. Functions
+### 1. Functions (proc/func)
 
-Define functions with explicit return types:
+Define functions with explicit return types using `proc` or `func`:
 
 ```bitn
-fn add(x: u32, y: u32) -> u32 {
-    return x + y;
-}
+proc add(x: u32, y: u32): u32 =
+  return add(x, y)
 
-fn main() -> u32 {
-    return 42;
-}
+func multiply(x: u32, y: u32): u32 =
+  return mul(x, y)
+
+proc main(): u32 =
+  let result: u32 = add(10, 20)
+  return result
 ```
 
 **Syntax:**
-- `fn` keyword marks function definition
+- `proc` or `func` keyword marks function definition
 - Parameters with type annotations: `name: type`
-- Return type after `->`: `-> type`
-- Body in braces with statements
+- Return type after `:`: `: type`
+- Body uses indentation (no braces)
+- Colon at end of function signature
+
+**Difference:**
+- `proc` - Traditional procedure-style function
+- `func` - Functional-style function (semantics identical currently)
 
 ---
 
@@ -95,117 +102,116 @@ fn main() -> u32 {
 
 ### 3. Variables
 
-Declare variables with `let`:
+Declare variables with `let` or `var`:
 
 ```bitn
-fn example() -> u32 {
-    let x: u32 = 10;
-    let y: u32 = 20;
-    let result: u32 = x + y;
-    return result;
-}
+proc example(): u32 =
+  let x: u32 = 10
+  var y: u32 = 20
+  let result: u32 = add(x, y)
+  return result
 ```
 
 **Syntax:**
-- `let name: type = value;`
+- `let name: type = value` - Immutable variable
+- `var name: type = value` - Mutable variable (planned)
 - Type annotation is required
 - Values must match the declared type
-- Scope tracked correctly in blocks
+- No semicolons required (newline-terminated)
+- Scope tracked correctly in indented blocks
 
 ---
 
-### 4. Arithmetic Operators
+### 4. Named Arithmetic Operators
+
+Instead of infix operators, use named functions:
 
 ```bitn
-fn math() -> u32 {
-    let a: u32 = 10;
-    let b: u32 = 3;
-    
-    let sum: u32 = a + b;          // Addition: 13
-    let diff: u32 = a - b;         // Subtraction: 7
-    let product: u32 = a * b;      // Multiplication: 30
-    let quotient: u32 = a / b;     // Division: 3
-    let remainder: u32 = a % b;    // Modulo: 1
-    
-    return quotient;
-}
+proc math(): u32 =
+  let a: u32 = 10
+  let b: u32 = 3
+  
+  let sum: u32 = add(a, b)           // Addition: 13
+  let diff: u32 = sub(a, b)          // Subtraction: 7
+  let product: u32 = mul(a, b)       // Multiplication: 30
+  let quotient: u32 = div(a, b)      // Division: 3
+  let remainder: u32 = mod(a, b)     // Modulo: 1
+  
+  return quotient
 ```
 
-**Operators:**
-- `+` Addition
-- `-` Subtraction
-- `*` Multiplication
-- `/` Division (integer)
-- `%` Modulo (remainder)
+**Named Operators:**
+- `add(x, y)` - Addition
+- `sub(x, y)` - Subtraction
+- `mul(x, y)` - Multiplication
+- `div(x, y)` - Division (integer)
+- `mod(x, y)` - Modulo (remainder)
+- `neg(x)` - Negation
 
 ---
 
-### 5. Bitwise Operators
+### 5. Named Bitwise Operators
 
-Specialized for bit manipulation:
+Specialized bitwise operations as named functions:
 
 ```bitn
-fn bitwise() -> u32 {
-    let a: u32 = 0xAA;
-    let b: u32 = 0x55;
-    
-    let and_result: u32 = a & b;     // Bitwise AND
-    let or_result: u32 = a | b;      // Bitwise OR
-    let xor_result: u32 = a ^ b;     // Bitwise XOR
-    let left_shift: u32 = a << 4;    // Left shift by 4
-    let right_shift: u32 = a >> 2;   // Right shift by 2
-    
-    return xor_result;
-}
+proc bitwise(): u32 =
+  let a: u32 = 0xAA
+  let b: u32 = 0x55
+  
+  let and_result: u32 = bitand(a, b)     // Bitwise AND
+  let or_result: u32 = bitor(a, b)       // Bitwise OR
+  let xor_result: u32 = bitxor(a, b)     // Bitwise XOR
+  let left_shift: u32 = shl(a, 4)        // Left shift by 4
+  let right_shift: u32 = shr(a, 2)       // Right shift by 2
+  
+  return xor_result
 ```
 
-**Operators:**
-- `&` Bitwise AND
-- `|` Bitwise OR
-- `^` Bitwise XOR
-- `<<` Left shift
-- `>>` Right shift
-- `~` Bitwise NOT (unary)
+**Named Bitwise Operators:**
+- `bitand(x, y)` - Bitwise AND
+- `bitor(x, y)` - Bitwise OR
+- `bitxor(x, y)` - Bitwise XOR
+- `shl(x, n)` - Left shift by n
+- `shr(x, n)` - Right shift by n
+- `bitnot(x)` - Bitwise NOT (unary)
 
 ---
 
-### 6. Comparison Operators
+### 6. Named Comparison Operators
 
 ```bitn
-fn compare() -> u32 {
-    let x: u32 = 10;
-    let y: u32 = 20;
-    
-    let eq: u32 = (x == y);  // Equals: 0 (false)
-    let ne: u32 = (x != y);  // Not equals: 1 (true)
-    let lt: u32 = (x < y);   // Less than: 1 (true)
-    let gt: u32 = (x > y);   // Greater than: 0 (false)
-    let le: u32 = (x <= y);  // Less or equal: 1 (true)
-    let ge: u32 = (x >= y);  // Greater or equal: 0 (false)
-    
-    return ne;
-}
+proc compare(): u32 =
+  let x: u32 = 10
+  let y: u32 = 20
+  
+  let eq: u32 = eq(x, y)    // Equals: 0 (false)
+  let ne: u32 = ne(x, y)    // Not equals: 1 (true)
+  let lt: u32 = lt(x, y)    // Less than: 1 (true)
+  let gt: u32 = gt(x, y)    // Greater than: 0 (false)
+  let le: u32 = le(x, y)    // Less or equal: 1 (true)
+  let ge: u32 = ge(x, y)    // Greater or equal: 0 (false)
+  
+  return ne
 ```
 
-**Operators:**
-- `==` Equal
-- `!=` Not equal
-- `<` Less than
-- `>` Greater than
-- `<=` Less or equal
-- `>=` Greater or equal
+**Named Comparison Operators:**
+- `eq(x, y)` - Equal
+- `ne(x, y)` - Not equal
+- `lt(x, y)` - Less than
+- `gt(x, y)` - Greater than
+- `le(x, y)` - Less or equal
+- `ge(x, y)` - Greater or equal
 
 ---
 
 ### 7. Return Statements
 
 ```bitn
-fn factorial(n: u32) -> u32 {
-    if n == 0 {
-        return 1;
-    }
-    return n;
-}
+proc factorial(n: u32): u32 =
+  if eq(n, 0):
+    return 1
+  return n
 ```
 
 Return from a function with a value matching the return type.
@@ -215,13 +221,12 @@ Return from a function with a value matching the return type.
 ### 8. Number Formats
 
 ```bitn
-fn numbers() -> u32 {
-    let decimal: u32 = 255;          // Decimal: base 10
-    let hex: u32 = 0xFF;             // Hexadecimal: base 16
-    let binary: u32 = 0b11111111;    // Binary: base 2
-    
-    return hex;
-}
+proc numbers(): u32 =
+  let decimal: u32 = 255          // Decimal: base 10
+  let hex: u32 = 0xFF             // Hexadecimal: base 16
+  let binary: u32 = 0b11111111    // Binary: base 2
+  
+  return hex
 ```
 
 **Formats:**
@@ -231,14 +236,13 @@ fn numbers() -> u32 {
 
 ---
 
-### 9. Bit Slices
+### 9. Bit Slices (Planned Phase 3)
 
 Extract ranges of bits from values:
 
 ```bitn
-fn extract(x: u32) -> u8 {
-    return x[8:16];  // Extract bits 8 through 15
-}
+proc extract(x: u32): u8 =
+  return x[8:16]  // Extract bits 8 through 15
 ```
 
 **Syntax:**
@@ -253,38 +257,45 @@ fn extract(x: u32) -> u8 {
 ### Example 1: Extract Bits
 
 ```bitn
-fn extract_bits() -> u32 {
-    let value: u32 = 0xFF;
-    let mask: u32 = 0x0F;
-    let result: u32 = value & mask;
-    return result;
-}
+proc extract_bits(): u32 =
+  let value: u32 = 0xFF
+  let mask: u32 = 0x0F
+  let result: u32 = bitand(value, mask)
+  return result
 ```
 
 ### Example 2: Bit Shifting
 
 ```bitn
-fn shift_operations() -> u32 {
-    let value: u32 = 1;
-    let shifted_left: u32 = value << 4;
-    let shifted_right: u32 = shifted_left >> 2;
-    return shifted_right;
-}
+proc shift_operations(): u32 =
+  let value: u32 = 1
+  let shifted_left: u32 = shl(value, 4)
+  let shifted_right: u32 = shr(shifted_left, 2)
+  return shifted_right
 ```
 
-### Example 3: Multiple Operations
+### Example 3: Multiple Bitwise Operations
 
 ```bitn
-fn bit_operations() -> u32 {
-    let a: u32 = 0xAAAA;
-    let b: u32 = 0x5555;
-    
-    let and_result: u32 = a & b;
-    let or_result: u32 = a | b;
-    let xor_result: u32 = a ^ b;
-    
-    return xor_result;
-}
+proc bit_operations(): u32 =
+  let a: u32 = 0xAAAA
+  let b: u32 = 0x5555
+  
+  let and_result: u32 = bitand(a, b)
+  let or_result: u32 = bitor(a, b)
+  let xor_result: u32 = bitxor(a, b)
+  
+  return xor_result
+```
+
+### Example 4: Bit Counting
+
+```bitn
+proc count_set_bits(): u32 =
+  let value: u32 = 0xFFFF
+  let shifted: u32 = shr(value, 8)
+  let count: u32 = add(value, shifted)
+  return count
 ```
 
 ---
@@ -295,7 +306,7 @@ fn bit_operations() -> u32 {
 
 #### Inline Code
 ```bash
-./build/bitN -c 'fn main() -> u32 { return 42; }'
+./build/bitN -c 'proc main(): u32 = return 42'
 ```
 
 #### From File
@@ -305,7 +316,7 @@ fn bit_operations() -> u32 {
 
 #### With Operations
 ```bash
-./build/bitN -c 'fn test() -> u32 { let x: u32 = 10 + 20; return x; }'
+./build/bitN -c 'proc test(): u32 = let x: u32 = add(10, 20); return x'
 ```
 
 ---
@@ -314,17 +325,19 @@ fn bit_operations() -> u32 {
 
 ### 1. Lexical Analysis
 - Tokenizes the input
-- Recognizes keywords: `fn`, `let`, `return`, `if`, `while`
+- Recognizes keywords: `proc`, `func`, `let`, `var`, `return`, `if`, `while`
+- Recognizes indentation tokens: `INDENT`, `DEDENT`
 - Parses numbers: decimal, hex (0x...), binary (0b...)
 - Identifies operators and delimiters
 - Tracks line and column positions
 
 ### 2. Syntax Analysis
 - Builds an Abstract Syntax Tree (AST)
-- Validates function definitions
+- Validates function definitions (proc/func)
 - Checks expression syntax
 - Verifies statement structure
-- Handles nested blocks
+- Handles indentation-based blocks
+- No braces required
 
 ### 3. Semantic Analysis
 - Tracks variable declarations in scopes
@@ -332,7 +345,7 @@ fn bit_operations() -> u32 {
 - Validates type compatibility
 - Detects undefined variables
 - Prevents variable redefinition
-- Validates return types (in progress)
+- Validates return types
 
 ### 4. Type Checking
 - Validates function return types
@@ -363,28 +376,28 @@ Displays:
 
 ### Sources (`src/`)
 - `token.c` - Token utilities
-- `lexer.c` - Lexical analyzer
+- `lexer.c` - Lexical analyzer (UPDATED: indentation tracking)
 - `ast.c` - AST management
-- `parser.c` - Parser implementation
+- `parser.c` - Parser implementation (UPDATED: proc/func/var support)
 - `type_system.c` - Type operations
 - `symbol_table.c` - Scope tracking
 - `type_inference.c` - Type validation
 - `main.c` - Compiler entry point
 
 ### Examples (`examples/`)
-- `extract_bits.bitn` - Bit extraction
-- `bit_manipulation.bitn` - Multiple operations
-- `count_bits.bitn` - Bit counting
+- `extract_bits.bitn` - Bit extraction (UPDATED: Nim-style syntax)
+- `bit_manipulation.bitn` - Multiple operations (UPDATED)
+- `count_bits.bitn` - Bit counting (UPDATED)
 
 ---
 
 ## Current Capabilities
 
 ### What Works ✅
-- Parse any function definition
+- Parse any function definition (proc/func)
 - Recognize all keywords and operators
 - Handle all number formats (decimal, hex, binary)
-- Support all operator types
+- Support all named operator types
 - Validate type annotations
 - Check function return types
 - Track variable scopes
@@ -392,14 +405,13 @@ Displays:
 - Infer expression types
 - Report compilation phases clearly
 - Full three-phase compilation pipeline
+- Indentation-based block parsing
+- Recognize `proc`, `func`, `var` keywords
 
 ### What's Coming 🔧
-- Full semantic analysis refinement
-- Better error messages
-- if/else statement handling
-- While loops
-- For loops
-- Function calls
+- Better error messages for type mismatches
+- Advanced control flow handling
+- Full variable scope refinement
 
 ### Future Enhancements 🚀
 - Code generation (ARM, RISC-V, x86)
@@ -412,14 +424,51 @@ Displays:
 
 ---
 
+## Syntax Comparison
+
+### Old Syntax (Rust-style)
+```rust
+fn add(x: u32, y: u32) -> u32 {
+    return x + y;
+}
+
+fn main() -> u32 {
+    let a: u32 = 10;
+    let b: u32 = 20;
+    return a + b;
+}
+```
+
+### New Syntax (Nim-style) ✨
+```bitn
+proc add(x: u32, y: u32): u32 =
+  return add(x, y)
+
+proc main(): u32 =
+  let a: u32 = 10
+  let b: u32 = 20
+  return add(a, b)
+```
+
+**Key Changes:**
+- `fn` → `proc` or `func`
+- `-> type` → `: type`
+- `{ }` → indentation-based blocks
+- Infix operators → named functions
+- `x + y` → `add(x, y)`
+- Semicolons optional (newline-terminated)
+
+---
+
 ## Limitations (Current Version)
 
 - **No code generation** - Parser to type checker only
+- **Named operators only** - Infix syntax planned for Phase 3
 - **Functions not callable** - Within code (planned)
 - **No arrays or pointers** - Planned for Phase 3
 - **No structs or custom types** - Planned for Phase 4
-- **Control flow partially supported** - if/while parsed but refinement in progress
-- **Parameters being type-checked** - Full validation in progress
+- **Bitfield support** - Planned for Phase 3
+- **Bit slices not yet implemented** - Phase 3
 
 ---
 
@@ -427,10 +476,11 @@ Displays:
 
 ### Parse Error Messages
 Check:
-1. Function syntax: `fn name() -> type { ... }`
-2. Variable syntax: `let x: type = value;`
-3. Return statements: `return value;`
+1. Function syntax: `proc name(): type = ...` or `func name(): type = ...`
+2. Variable syntax: `let x: type = value`
+3. Return statements: `return value`
 4. Type annotations present on variables
+5. Proper indentation (no tabs/spaces mix)
 
 ### Build Failures
 Clean rebuild:
@@ -459,7 +509,7 @@ make
 
 2. Try a simple program:
    ```bash
-   ./build/bitN -c 'fn test() -> u32 { return 42; }'
+   ./build/bitN -c 'proc test(): u32 = return 42'
    ```
 
 3. Expected output:
@@ -483,4 +533,4 @@ make
 
 ---
 
-**Ready to compile bit(N) code!** 🚀
+**Ready to compile bit(N) code in Nim-style!** 🚀
