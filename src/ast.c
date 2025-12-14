@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "type_system.h"
 #include <stdlib.h>
 #include <string.h>
 
