@@ -1,5 +1,5 @@
-#ifndef BITN_PARSER_H
-#define BITN_PARSER_H
+#ifndef PARSER_H
+#define PARSER_H
 
 #include "lexer.h"
 #include "ast.h"
@@ -17,4 +17,4 @@ void parser_error(Parser *parser, const char *message);
 int parser_has_error(Parser *parser);
 ASTProgram *parser_parse_program(Parser *parser);
 
-#endif
+#endif // PARSER_H

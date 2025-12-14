@@ -1,14 +1,13 @@
-#ifndef BITN_LEXER_H
-#define BITN_LEXER_H
+#ifndef LEXER_H
+#define LEXER_H
 
 #include "token.h"
-#include <stddef.h>
 
 typedef struct {
     const char *input;
     size_t pos;
-    size_t line;
-    size_t column;
+    int line;
+    int column;
     char current;
 } Lexer;
 
@@ -18,4 +17,4 @@ Token lexer_next_token(Lexer *lexer);
 void lexer_skip_whitespace(Lexer *lexer);
 void lexer_skip_comment(Lexer *lexer);
 
-#endif
+#endif // LEXER_H

@@ -11,9 +11,11 @@ int main(int argc, char *argv[]) {
     printf("=== bit(N) Compiler ===\n");
     
     const char *source = "fn main() -> u32 { return 42; }";
+    int should_free = 0;
     
     if (argc > 2 && strcmp(argv[1], "-c") == 0) {
         source = argv[2];
+        should_free = 0;
     } else if (argc > 1) {
         FILE *f = fopen(argv[1], "r");
         if (!f) {
@@ -23,13 +25,23 @@ int main(int argc, char *argv[]) {
         fseek(f, 0, SEEK_END);
         long size = ftell(f);
         fseek(f, 0, SEEK_SET);
-        source = malloc(size + 1);
-        size_t bytes_read = fread((void *)source, 1, (size_t)size, f);
-        ((char *)source)[bytes_read] = '\0';
+        
+        char *file_source = malloc(size + 1);
+        if (!file_source) {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            fclose(f);
+            return 1;
+        }
+        
+        size_t bytes_read = fread(file_source, 1, (size_t)size, f);
+        file_source[bytes_read] = '\0';
         fclose(f);
+        
+        source = file_source;
+        should_free = 1;
     }
     
-    printf("Input: %s\n\n", argc > 1 ? argv[1] : "-c");
+    printf("Input: %s\n\n", argc > 1 ? (argc > 2 && strcmp(argv[1], "-c") == 0 ? "command-line" : argv[1]) : "default");
     
     Lexer *lexer = lexer_create(source);
     printf("--- Lexical Analysis ---\n");
@@ -48,17 +60,21 @@ int main(int argc, char *argv[]) {
     ASTProgram *program = parser_parse_program(parser);
     
     if (!parser_has_error(parser)) {
-        printf("Successfully parsed %lu functions\n", program->function_count);
+        printf("✅ Successfully parsed %lu functions\n", program->function_count);
         for (size_t i = 0; i < program->function_count; i++) {
             printf("  - %s\n", program->functions[i]->name);
         }
         printf("\n=== Compilation Complete ===\n");
     } else {
-        printf("Parsing failed\n");
+        printf("❌ Parsing failed\n");
     }
     
     parser_free(parser);
     ast_free_program(program);
+    
+    if (should_free) {
+        free((void *)source);
+    }
     
     return 0;
 }
