@@ -1,5 +1,5 @@
-#include "type_inference.h"
-#include "type_system.h"
+#include "../include/type_inference.h"
+#include "../include/type_system.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -55,9 +55,10 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
         
         case EXPR_IDENTIFIER: {
             // Look up variable in symbol table
-            Symbol *sym = symbol_table_lookup(ctx->symbols, expr->data.identifier);
+            const char *name = expr->data.identifier;
+            Symbol *sym = symbol_table_lookup(ctx->symbols, name);
             if (!sym) {
-                fprintf(stderr, "Error: undefined variable '%s'\n", expr->data.identifier);
+                fprintf(stderr, "Error: undefined variable '%s'\n", name);
                 ctx->error_count++;
                 return NULL;
             }
@@ -71,7 +72,6 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
         
         case EXPR_STRING: {
             // String type - not fully defined yet
-            // For now, treat as error
             fprintf(stderr, "Error: string literals not yet supported\n");
             ctx->error_count++;
             return NULL;
@@ -88,8 +88,6 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
                 case UOP_NOT:
                 case UOP_BIT_NOT:
                 case UOP_NEG:
-                    // Result type is same as operand for bitwise ops
-                    // For logical NOT, should return bool but returning operand type for now
                     return operand_type;
                 default:
                     type_free(operand_type);
@@ -168,21 +166,18 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
         }
         
         case EXPR_ARRAY_INDEX: {
-            // Array indexing - not fully defined
             fprintf(stderr, "Error: array indexing not yet supported\n");
             ctx->error_count++;
             return NULL;
         }
         
         case EXPR_CALL: {
-            // Function calls - not fully defined
             fprintf(stderr, "Error: function calls not yet supported in expressions\n");
             ctx->error_count++;
             return NULL;
         }
         
         case EXPR_MEMBER_ACCESS: {
-            // Member access - not fully defined
             fprintf(stderr, "Error: member access not yet supported\n");
             ctx->error_count++;
             return NULL;
@@ -195,11 +190,10 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
 
 // Determine result type of binary operation
 static Type *infer_binary_op_type(TypeContext *ctx, BinaryOp op, Type *left, Type *right) {
-    (void)ctx;  // Unused in simple case
-    (void)right; // Types must match, so right type not needed
+    (void)ctx;
+    (void)right;
     
     switch (op) {
-        // Arithmetic operations preserve type
         case BOP_ADD:
         case BOP_SUB:
         case BOP_MUL:
@@ -207,7 +201,6 @@ static Type *infer_binary_op_type(TypeContext *ctx, BinaryOp op, Type *left, Typ
         case BOP_MOD:
             return type_clone(left);
         
-        // Bitwise operations preserve type
         case BOP_AND:
         case BOP_OR:
         case BOP_XOR:
@@ -217,7 +210,6 @@ static Type *infer_binary_op_type(TypeContext *ctx, BinaryOp op, Type *left, Typ
         case BOP_RROTATE:
             return type_clone(left);
         
-        // Comparison operations return u8 (boolean)
         case BOP_EQ:
         case BOP_NE:
         case BOP_LT:
@@ -234,7 +226,7 @@ static Type *infer_binary_op_type(TypeContext *ctx, BinaryOp op, Type *left, Typ
 // Check types in a statement
 int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
     if (!ctx || !stmt) {
-        return 1;  // OK
+        return 1;
     }
     
     switch (stmt->kind) {
@@ -263,7 +255,9 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
             if (!symbol_table_add_symbol(ctx->symbols, 
                                         stmt->data.var_decl.name,
                                         var_type,
-                                        0)) {  // Not a parameter
+                                        stmt->data.var_decl.is_mut)) {
+                fprintf(stderr, "Error: symbol '%s' already defined in this scope\n", 
+                        stmt->data.var_decl.name);
                 ctx->error_count++;
                 return 0;
             }
@@ -271,12 +265,14 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
         }
         
         case STMT_EXPR: {
-            Type *expr_type = infer_expr_type(ctx, stmt->data.expr_stmt.expr);
-            if (!expr_type) {
-                ctx->error_count++;
-                return 0;
+            if (stmt->data.expr_stmt.expr) {
+                Type *expr_type = infer_expr_type(ctx, stmt->data.expr_stmt.expr);
+                if (!expr_type) {
+                    ctx->error_count++;
+                    return 0;
+                }
+                type_free(expr_type);
             }
-            type_free(expr_type);
             return 1;
         }
         
@@ -309,9 +305,12 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
             symbol_table_push_scope(ctx->symbols);
             
             int result = 1;
-            for (size_t i = 0; i < stmt->data.block.count; i++) {
-                if (!check_stmt_types(ctx, stmt->data.block.statements[i])) {
-                    result = 0;
+            // Use .count field for block statements
+            if (stmt->data.block.statements && stmt->data.block.count > 0) {
+                for (size_t i = 0; i < stmt->data.block.count; i++) {
+                    if (!check_stmt_types(ctx, stmt->data.block.statements[i])) {
+                        result = 0;
+                    }
                 }
             }
             
@@ -353,7 +352,8 @@ int check_function_types(TypeContext *ctx, ASTFunctionDef *func) {
         if (!symbol_table_add_symbol(ctx->symbols,
                                     func->param_names[i],
                                     param_type,
-                                    1)) {  // Is parameter
+                                    1)) {
+            fprintf(stderr, "Error: parameter '%s' already defined\n", func->param_names[i]);
             ctx->error_count++;
             symbol_table_pop_scope(ctx->symbols);
             return 0;
@@ -361,7 +361,10 @@ int check_function_types(TypeContext *ctx, ASTFunctionDef *func) {
     }
     
     // Check function body
-    int result = check_stmt_types(ctx, func->body);
+    int result = 1;
+    if (func->body) {
+        result = check_stmt_types(ctx, func->body);
+    }
     
     // Pop function scope
     symbol_table_pop_scope(ctx->symbols);
@@ -375,7 +378,7 @@ int check_program_types(TypeContext *ctx, ASTProgram *program) {
         return 1;
     }
     
-    int errors = 0;
+    int all_ok = 1;
     
     // First pass: register all functions in global scope
     for (size_t i = 0; i < program->function_count; i++) {
@@ -383,18 +386,19 @@ int check_program_types(TypeContext *ctx, ASTProgram *program) {
         Type *func_type = type_clone(func->return_type);
         
         // Add function to symbol table (as a special marker)
-        // For now, just mark that function is defined
         if (!symbol_table_add_symbol(ctx->symbols, func->name, func_type, 0)) {
-            errors++;
+            fprintf(stderr, "Error: function '%s' already defined\n", func->name);
+            ctx->error_count++;
+            all_ok = 0;
         }
     }
     
     // Second pass: check each function
     for (size_t i = 0; i < program->function_count; i++) {
         if (!check_function_types(ctx, program->functions[i])) {
-            errors++;
+            all_ok = 0;
         }
     }
     
-    return errors == 0;
+    return all_ok && ctx->error_count == 0;
 }
