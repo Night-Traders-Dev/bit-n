@@ -1,4 +1,4 @@
-#include "lexer.h"
+#include "../include/lexer.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -27,7 +27,7 @@ static char lexer_peek(Lexer *lexer) {
 Lexer *lexer_create(const char *input) {
     Lexer *lexer = (Lexer *)malloc(sizeof(Lexer));
     lexer->input = input;
-    lexer->pos = 0;
+    lexer->pos = 1;  // ← FIX: Start at 1, not 0
     lexer->line = 1;
     lexer->column = 0;
     lexer->current = input[0];
