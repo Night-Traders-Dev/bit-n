@@ -14,6 +14,8 @@ set(SOURCES
     src/ast.c
     src/parser.c
     src/type_system.c
+    src/type_inference.c
+    src/symbol_table.c
 )
 
 add_executable(bitN ${SOURCES})
