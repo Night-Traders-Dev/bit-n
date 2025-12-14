@@ -1,9 +1,0 @@
-# Extract bits from a value using Nim-style syntax
-proc extract_bits(): u32 =
-  let value: u32 = 0xFF
-  let mask: u32 = 0x0F
-  let result: u32 = bitand(value, mask)
-  return result
-
-proc main(): u32 =
-  return extract_bits()
