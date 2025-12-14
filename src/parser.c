@@ -75,11 +75,16 @@ static ASTExpr *parser_parse_primary(Parser *parser) {
             return ast_expr_number(value, TYPE_U32);
         }
 
-        case TOK_IDENTIFIER: {
-            const char *name = parser->current.value;
-            parser_advance(parser);
-            return ast_expr_identifier(name);
-        }
+        case TOK_IDENTIFIER:
+        // ✅ Copy the identifier from token
+        char *name = malloc(parser->current.length + 1);
+        strncpy(name, parser->current.value, parser->current.length);
+        name[parser->current.length] = '\0';
+        parser_advance(parser);
+        ASTExpr *expr = ast_expr_identifier(name);
+        free(name);  // ast_expr_identifier will copy it
+        return expr;
+
 
         case TOK_TRUE:
             parser_advance(parser);
