@@ -1,3 +1,4 @@
+## bit(N) Compiler - Language Guide
 ![bit(N) Compiler - Language Guide](bitN.jpg)
 
 ## Status: Phase 2 In Progress 🚀
