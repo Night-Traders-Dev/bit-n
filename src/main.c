@@ -1,127 +1,132 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lexer.h"
 #include "parser.h"
 #include "ast.h"
-#include "type_system.h"
-#include "symbol_table.h"
-#include "type_inference.h"
+#include "lexer.h"
 
-static void print_function(ASTFunctionDef *func);
-static void semantic_analysis_phase(ASTProgram *program);
-
-static void print_function(ASTFunctionDef *func) {
-    printf("  - %s(", func->name);
-    
-    for (size_t i = 0; i < func->param_count; i++) {
-        printf("%s: %s", func->param_names[i], type_to_string(func->param_types[i]));
-        if (i < func->param_count - 1) {
-            printf(", ");
-        }
+static const char *access_kind_name(AccessKind access) {
+    switch (access) {
+        case ACCESS_RO: return "ro";
+        case ACCESS_WO: return "wo";
+        case ACCESS_RW: return "rw";
+        case ACCESS_W1C: return "w1c";
+        default: return "?";
     }
-    
-    printf(") -> %s\n", type_to_string(func->return_type));
 }
 
-static void semantic_analysis_phase(ASTProgram *program) {
-    if (!program) return;
-    
-    printf("\n--- Semantic Analysis ---\n");
-    
-    TypeContext *ctx = type_context_create();
-    
-    if (check_program_types(ctx, program)) {
-        printf("✅ Semantic analysis passed\n");
-    } else {
-        printf("❌ Semantic analysis failed (%d errors)\n", ctx->error_count);
+static const char *type_kind_name(TypeKind kind) {
+    switch (kind) {
+        case TYPE_VOID: return "void";
+        case TYPE_U8: return "u8";
+        case TYPE_U16: return "u16";
+        case TYPE_U32: return "u32";
+        case TYPE_U64: return "u64";
+        case TYPE_I8: return "i8";
+        case TYPE_I16: return "i16";
+        case TYPE_I32: return "i32";
+        case TYPE_I64: return "i64";
+        default: return "?";
     }
-    
-    type_context_free(ctx);
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <source_file>\n", argv[0]);
-        fprintf(stderr, "   or: %s -c '<code>'\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-
-    const char *source = NULL;
-    const char *filename = "command-line";
-    char source_buffer[4096];
+    printf("=== bit(N) Compiler with DSL Support ===\n\n");
     
-    if (strcmp(argv[1], "-c") == 0) {
-        if (argc < 3) {
-            fprintf(stderr, "Error: -c requires code argument\n");
-            return EXIT_FAILURE;
-        }
+    const char *source = "fn main() -> u32 { return 42; }";
+    int should_free = 0;
+    
+    if (argc > 2 && strcmp(argv[1], "-c") == 0) {
         source = argv[2];
-    } else {
-        FILE *file = fopen(argv[1], "r");
-        if (!file) {
-            fprintf(stderr, "Error: cannot open file '%s'\n", argv[1]);
-            return EXIT_FAILURE;
+        should_free = 0;
+    } else if (argc > 1) {
+        FILE *f = fopen(argv[1], "r");
+        if (!f) {
+            fprintf(stderr, "Error: Cannot open file %s\n", argv[1]);
+            return 1;
         }
         
-        size_t size = fread(source_buffer, 1, sizeof(source_buffer) - 1, file);
-        source_buffer[size] = '\0';
-        source = source_buffer;
-        filename = argv[1];
+        fseek(f, 0, SEEK_END);
+        long size = ftell(f);
+        fseek(f, 0, SEEK_SET);
         
-        fclose(file);
+        char *file_source = malloc(size + 1);
+        if (!file_source) {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            fclose(f);
+            return 1;
+        }
+        
+        size_t bytes_read = fread(file_source, 1, (size_t)size, f);
+        file_source[bytes_read] = '\0';
+        fclose(f);
+        
+        source = file_source;
+        should_free = 1;
     }
-
-    printf("=== bit(N) Compiler ===\n");
-    printf("Input: %s\n", filename);
-
+    
+    printf("Input: %s\n\n", argc > 1 ? argv[1] : "default");
+    
+    // Create lexer and tokenize
     Lexer *lexer = lexer_create(source);
+    printf("--- Lexical Analysis ---\n");
     
-    printf("\n--- Lexical Analysis ---\n");
-    Token token;
-    size_t token_count = 0;
+    Token tok;
+    int token_count = 0;
+    
     do {
-        token = lexer_next_token(lexer);
-        printf("Token(%d, line=%d, col=%d, len=%d)\n",
-               token.type,
-               token.line,
-               token.column,
-               token.length);
+        tok = lexer_next_token(lexer);
+        token_print(&tok);
         token_count++;
-    } while (token.type != TOK_EOF);
-    printf("Total tokens: %zu\n", token_count);
-
-    printf("\n=== Compilation Complete ===\n");
-
-    // Create parser with source
-    Parser *parser = parser_create(source);
+    } while (tok.type != TOK_EOF);
     
-    printf("\n--- Parsing ---\n");
+    lexer_free(lexer);
+    printf("Total tokens: %d\n\n", token_count - 1);
+    
+    // Parse the tokens
+    Parser *parser = parser_create(source);
+    printf("--- Parsing ---\n");
+    
     ASTProgram *program = parser_parse_program(parser);
     
-    if (program && program->function_count > 0) {
-        printf("✅ Successfully parsed %zu functions\n", program->function_count);
+    if (!parser_has_error(parser)) {
+        printf("✅ Successfully parsed\n");
+        printf("   Functions: %lu\n", program->function_count);
         for (size_t i = 0; i < program->function_count; i++) {
-            print_function(program->functions[i]);
+            printf("     - fn %s\n", program->functions[i]->name);
         }
+        
+        printf("   Peripherals: %lu\n", program->peripheral_count);
+        for (size_t i = 0; i < program->peripheral_count; i++) {
+            ASTPeripheral *periph = program->peripherals[i];
+            printf("     - peripheral %s @ 0x%08X\n", periph->name, periph->base_address);
+            
+            for (size_t j = 0; j < periph->register_count; j++) {
+                ASTRegister *reg = periph->registers[j];
+                printf("       * register %s: %s @ offset 0x%02X\n",
+                       reg->name, type_kind_name(reg->type->kind), reg->offset);
+                
+                for (size_t k = 0; k < reg->field_count; k++) {
+                    ASTField *field = reg->fields[k];
+                    printf("         - field %s: [%u:%u] %s\n",
+                           field->name, field->start_bit, field->end_bit,
+                           access_kind_name(field->access));
+                }
+            }
+        }
+        
+        printf("\n=== Compilation Successful ===\n");
     } else {
-        printf("❌ No functions parsed\n");
+        printf("❌ Parsing failed\n");
     }
-
-    // Phase 2: Semantic Analysis (NEW)
-    if (program) {
-        semantic_analysis_phase(program);
-    }
-
-    printf("\n--- Type Checking ---\n");
-    printf("✅ Type checking passed\n");
-
+    
     // Cleanup
-    if (program) {
-        free(program);
-    }
     parser_free(parser);
-    lexer_free(lexer);
-
-    return EXIT_SUCCESS;
+    ast_free_program(program);
+    
+    if (should_free) {
+        free((void *)source);
+    }
+    
+    return 0;
 }

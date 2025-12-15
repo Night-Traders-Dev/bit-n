@@ -1,0 +1,33 @@
+// RP2040 GPIO Peripheral Definition
+// This is an example of the new DSL syntax for bit(N)
+
+peripheral GPIO @ 0x40014000 {
+    // Output Enable Register
+    register GPIO_OE: u32 @ 0x20 {
+        field OE_0: [0:1]   rw;
+        field OE_1: [1:2]   rw;
+        field OE_2: [2:3]   rw;
+        field OE_3: [3:4]   rw;
+    }
+    
+    // Input Register
+    register GPIO_IN: u32 @ 0x24 {
+        field IN_0: [0:1]   ro;
+        field IN_1: [1:2]   ro;
+        field IN_2: [2:3]   ro;
+        field IN_3: [3:4]   ro;
+    }
+    
+    // Output Register
+    register GPIO_OUT: u32 @ 0x28 {
+        field OUT_0: [0:1]   rw;
+        field OUT_1: [1:2]   rw;
+        field OUT_2: [2:3]   rw;
+        field OUT_3: [3:4]   rw;
+    }
+}
+
+// Simple function using the GPIO peripheral
+fn test_gpio() -> u32 {
+    return 0x00001234;
+}
