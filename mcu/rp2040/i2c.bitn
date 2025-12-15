@@ -1,0 +1,256 @@
+// Raspberry Pi Pico (RP2040) I2C Peripheral Definition
+// 
+// Memory Map:
+//   I2C0 Base: 0x40044000
+//   I2C1 Base: 0x40048000
+//   Size: 4KB each
+//
+// Description:
+//   Two independent I2C (Inter-Integrated Circuit) controllers
+//   for synchronous two-wire communication.
+
+peripheral I2C0 @ 0x40044000 {
+    // Control Register
+    register IC_CON: u32 @ 0x00 {
+        field MASTER_MODE: [0:0]    rw;  // Master mode enable
+        field SPEED: [2:1]          rw;  // Speed mode (standard/fast/high)
+        field IC_10BITADDR_SLAVE: [3:3] rw;  // Slave 10-bit addressing
+        field IC_10BITADDR_MASTER: [4:4] rw; // Master 10-bit addressing
+        field IC_RESTART_EN: [5:5]  rw;  // Restart condition enable
+        field IC_SLAVE_DISABLE: [6:6] rw;    // Slave mode disable
+        field STOP_DET_IFADDRESSED: [7:7] rw; // STOP detect when addressed
+        field TX_EMPTY_CTRL: [8:8]  rw;  // TX empty control
+        field RX_FIFO_FULL_HLD_CTRL: [9:9] rw; // RX FIFO full hold
+        field RESERVED: [31:10] rw;
+    }
+    
+    // Target Address Register
+    register IC_TAR: u32 @ 0x04 {
+        field IC_TAR: [9:0]  rw;   // Target slave address
+        field GC_OR_START: [10:10] rw; // General call or START byte
+        field SPECIAL: [11:11] rw; // Special bit
+        field IC_10BITADDR_MASTER: [12:12] rw; // 10-bit addressing
+        field DEVICE_ID: [15:13] rw; // Device ID
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Data Buffer and Command Register
+    register IC_DATA_CMD: u32 @ 0x10 {
+        field DAT: [7:0]    rw;   // Data or command
+        field CMD: [8:8]    rw;   // Read/write command
+        field STOP: [9:9]   rw;   // Issue STOP after data
+        field RESTART: [10:10] rw; // Issue RESTART condition
+        field FIRST_DATA_BYTE: [11:11] rw; // First data byte indicator
+        field RESERVED: [31:12] rw;
+    }
+    
+    // Standard Speed I2C Clock SCL High Count Register
+    register IC_SS_SCL_HCNT: u32 @ 0x14 {
+        field COUNT: [15:0] rw;   // SCL high count
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Standard Speed I2C Clock SCL Low Count Register
+    register IC_SS_SCL_LCNT: u32 @ 0x18 {
+        field COUNT: [15:0] rw;   // SCL low count
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Fast Speed I2C Clock SCL High Count Register
+    register IC_FS_SCL_HCNT: u32 @ 0x1C {
+        field COUNT: [15:0] rw;   // SCL high count
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Fast Speed I2C Clock SCL Low Count Register
+    register IC_FS_SCL_LCNT: u32 @ 0x20 {
+        field COUNT: [15:0] rw;   // SCL low count
+        field RESERVED: [31:16] rw;
+    }
+    
+    // High Speed I2C Clock SCL High Count Register
+    register IC_HS_SCL_HCNT: u32 @ 0x24 {
+        field COUNT: [15:0] rw;   // SCL high count
+        field RESERVED: [31:16] rw;
+    }
+    
+    // High Speed I2C Clock SCL Low Count Register
+    register IC_HS_SCL_LCNT: u32 @ 0x28 {
+        field COUNT: [15:0] rw;   // SCL low count
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Interrupt Status Register
+    register IC_INTR_STAT: u32 @ 0x2C {
+        field R_RX_UNDER: [0:0]    ro;  // RX FIFO underflow
+        field R_RX_OVER: [1:1]     ro;  // RX FIFO overflow
+        field R_RX_FULL: [2:2]     ro;  // RX FIFO full
+        field R_TX_OVER: [3:3]     ro;  // TX FIFO overflow
+        field R_TX_EMPTY: [4:4]    ro;  // TX FIFO empty
+        field R_RD_REQ: [5:5]      ro;  // Read request
+        field R_TX_ABRT: [6:6]     ro;  // Transmit abort
+        field R_RX_DONE: [7:7]     ro;  // RX done
+        field R_ACTIVITY: [8:8]    ro;  // Activity
+        field R_STOP_DET: [9:9]    ro;  // STOP condition detected
+        field R_START_DET: [10:10] ro;  // START condition detected
+        field R_GEN_CALL: [11:11]  ro;  // General call
+        field R_RESTART_DET: [12:12] ro; // RESTART detected
+        field R_MASTER_ON_HOLD: [13:13] ro; // Master on hold
+        field RESERVED: [31:14] rw;
+    }
+    
+    // Interrupt Mask Register
+    register IC_INTR_MASK: u32 @ 0x30 {
+        field M_RX_UNDER: [0:0]    rw;  // RX underflow mask
+        field M_RX_OVER: [1:1]     rw;  // RX overflow mask
+        field M_RX_FULL: [2:2]     rw;  // RX full mask
+        field M_TX_OVER: [3:3]     rw;  // TX overflow mask
+        field M_TX_EMPTY: [4:4]    rw;  // TX empty mask
+        field M_RD_REQ: [5:5]      rw;  // Read request mask
+        field M_TX_ABRT: [6:6]     rw;  // TX abort mask
+        field M_RX_DONE: [7:7]     rw;  // RX done mask
+        field M_ACTIVITY: [8:8]    rw;  // Activity mask
+        field M_STOP_DET: [9:9]    rw;  // STOP detect mask
+        field M_START_DET: [10:10] rw;  // START detect mask
+        field M_GEN_CALL: [11:11]  rw;  // General call mask
+        field M_RESTART_DET: [12:12] rw; // RESTART detect mask
+        field M_MASTER_ON_HOLD: [13:13] rw; // Master on hold mask
+        field RESERVED: [31:14] rw;
+    }
+    
+    // Raw Interrupt Status Register
+    register IC_RAW_INTR_STAT: u32 @ 0x34 {
+        field RX_UNDER: [0:0]    ro;  // RX underflow status
+        field RX_OVER: [1:1]     ro;  // RX overflow status
+        field RX_FULL: [2:2]     ro;  // RX full status
+        field TX_OVER: [3:3]     ro;  // TX overflow status
+        field TX_EMPTY: [4:4]    ro;  // TX empty status
+        field RD_REQ: [5:5]      ro;  // Read request status
+        field TX_ABRT: [6:6]     ro;  // TX abort status
+        field RX_DONE: [7:7]     ro;  // RX done status
+        field ACTIVITY: [8:8]    ro;  // Activity status
+        field STOP_DET: [9:9]    ro;  // STOP detect status
+        field START_DET: [10:10] ro;  // START detect status
+        field GEN_CALL: [11:11]  ro;  // General call status
+        field RESTART_DET: [12:12] ro; // RESTART detect status
+        field MASTER_ON_HOLD: [13:13] ro; // Master on hold status
+        field RESERVED: [31:14] rw;
+    }
+    
+    // Transmit FIFO Flush Register
+    register IC_TXF_LVL: u32 @ 0x74 {
+        field TXFLR: [4:0]  ro;   // TX FIFO level
+        field RESERVED: [31:5] rw;
+    }
+    
+    // Receive FIFO Level Register
+    register IC_RXFL_LVL: u32 @ 0x78 {
+        field RXFLR: [4:0]  ro;   // RX FIFO level
+        field RESERVED: [31:5] rw;
+    }
+    
+    // SDA Hold Time Register
+    register IC_SDA_HOLD: u32 @ 0x7C {
+        field IC_SDA_HOLD_TIME: [15:0] rw; // SDA hold time
+        field IC_SDA_RX_HOLD: [23:16] rw;  // SDA RX hold time
+        field RESERVED: [31:24] rw;
+    }
+    
+    // Enable Register
+    register IC_ENABLE: u32 @ 0x6C {
+        field ENABLE: [0:0]    rw;  // I2C enable
+        field ABORT: [1:1]     rw;  // Abort operation
+        field TX_CMD_BLOCK: [2:2] rw; // Block TX commands
+        field RESERVED: [31:3] rw;
+    }
+    
+    // Status Register
+    register IC_STATUS: u32 @ 0x70 {
+        field ACTIVITY: [0:0]   ro; // I2C activity
+        field TFNF: [1:1]      ro; // TX FIFO not full
+        field TFE: [2:2]       ro; // TX FIFO empty
+        field RFNE: [3:3]      ro; // RX FIFO not empty
+        field RFF: [4:4]       ro; // RX FIFO full
+        field MASTER_ACTIVITY: [5:5] ro; // Master activity
+        field SLAVE_ACTIVITY: [6:6] ro;  // Slave activity
+        field MASTER_FSM_DEBUG: [11:7] ro; // Master FSM debug
+        field SLAVE_FSM_DEBUG: [15:12] ro; // Slave FSM debug
+        field SDA_STUCK_NOT_RECOVERED: [16:16] ro; // SDA stuck
+        field RESERVED: [31:17] rw;
+    }
+}
+
+// I2C1 is identical to I2C0 but at a different base address
+peripheral I2C1 @ 0x40048000 {
+    register IC_CON: u32 @ 0x00 {
+        field MASTER_MODE: [0:0]    rw;
+        field SPEED: [2:1]          rw;
+        field IC_10BITADDR_SLAVE: [3:3] rw;
+        field IC_10BITADDR_MASTER: [4:4] rw;
+        field IC_RESTART_EN: [5:5]  rw;
+        field IC_SLAVE_DISABLE: [6:6] rw;
+        field STOP_DET_IFADDRESSED: [7:7] rw;
+        field TX_EMPTY_CTRL: [8:8]  rw;
+        field RX_FIFO_FULL_HLD_CTRL: [9:9] rw;
+        field RESERVED: [31:10] rw;
+    }
+    
+    register IC_TAR: u32 @ 0x04 {
+        field IC_TAR: [9:0]  rw;
+        field GC_OR_START: [10:10] rw;
+        field SPECIAL: [11:11] rw;
+        field IC_10BITADDR_MASTER: [12:12] rw;
+        field DEVICE_ID: [15:13] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register IC_DATA_CMD: u32 @ 0x10 {
+        field DAT: [7:0]    rw;
+        field CMD: [8:8]    rw;
+        field STOP: [9:9]   rw;
+        field RESTART: [10:10] rw;
+        field FIRST_DATA_BYTE: [11:11] rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register IC_SS_SCL_HCNT: u32 @ 0x14 {
+        field COUNT: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register IC_SS_SCL_LCNT: u32 @ 0x18 {
+        field COUNT: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register IC_FS_SCL_HCNT: u32 @ 0x1C {
+        field COUNT: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register IC_FS_SCL_LCNT: u32 @ 0x20 {
+        field COUNT: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register IC_ENABLE: u32 @ 0x6C {
+        field ENABLE: [0:0]    rw;
+        field ABORT: [1:1]     rw;
+        field TX_CMD_BLOCK: [2:2] rw;
+        field RESERVED: [31:3] rw;
+    }
+    
+    register IC_STATUS: u32 @ 0x70 {
+        field ACTIVITY: [0:0]   ro;
+        field TFNF: [1:1]      ro;
+        field TFE: [2:2]       ro;
+        field RFNE: [3:3]      ro;
+        field RFF: [4:4]       ro;
+        field MASTER_ACTIVITY: [5:5] ro;
+        field SLAVE_ACTIVITY: [6:6] ro;
+        field MASTER_FSM_DEBUG: [11:7] ro;
+        field SLAVE_FSM_DEBUG: [15:12] ro;
+        field SDA_STUCK_NOT_RECOVERED: [16:16] ro;
+        field RESERVED: [31:17] rw;
+    }
+}

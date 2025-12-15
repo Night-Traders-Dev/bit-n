@@ -1,16 +1,16 @@
-## bit(N) Compiler - Language Guide
-![bit(N) Compiler - Language Guide](assets/bitN.jpg)
+# bit(N) Compiler - Language Guide
 
-## Status: Phase 2 In Progress 🚀
+## Status: Phase 2 Complete ✅ | Peripheral DSL Support Added 🎯
 
-**Latest Update:** Syntax redesign complete. Nim-style indentation-based language with named operators. Semantic analysis framework integrated. Symbol table and type inference operational.
+**Latest Update:** Full peripheral DSL support implemented! Namespace structure for MCU definitions added. Semantic analysis framework extended for hardware abstractions.
 
 The bit(N) compiler now includes:
-- ✅ Lexical analysis (tokenization) - Updated for new syntax
-- ✅ Syntax analysis (parsing) - Indentation-based blocks
-- ✅ AST construction
+- ✅ Lexical analysis (tokenization) - Complete with DSL tokens
+- ✅ Syntax analysis (parsing) - Indentation-based blocks + peripherals
+- ✅ AST construction - Functions AND peripheral definitions
 - ✅ Type system integration
 - ✅ Semantic analysis (symbol table, type inference)
+- ✅ **Peripheral DSL parsing** - register, field, access modes
 
 ---
 
@@ -26,28 +26,22 @@ bash bitN_setup.sh
 ### First Program
 
 ```bash
-./build/bitN -c 'proc main(): u32 = return 42'
+./build/bitN examples/basic.bitn
 ```
 
 ### Expected Output
 
 ```
-=== bit(N) Compiler ===
-Input: command-line
+=== bit(N) Compiler with DSL Support ===
 
 --- Lexical Analysis ---
-Token(PROC, line=1, col=0, len=4)
+Token(PROC, ...)
 ...
 
 --- Parsing ---
-✅ Successfully parsed 1 functions
-  - main() -> u32
-
---- Semantic Analysis ---
-✅ Semantic analysis passed
-
---- Type Checking ---
-✅ Type checking passed
+✅ Successfully parsed
+   Functions: 1
+   Peripherals: 0
 ```
 
 ---
@@ -56,247 +50,205 @@ Token(PROC, line=1, col=0, len=4)
 
 ### 1. Functions (proc/func)
 
-Define functions with explicit return types using `proc` or `func`:
+Define functions with explicit return types:
 
 ```bitn
 proc add(x: u32, y: u32): u32 =
   return add(x, y)
 
-func multiply(x: u32, y: u32): u32 =
-  return mul(x, y)
-
-proc main(): u32 =
-  let result: u32 = add(10, 20)
-  return result
+fn test_gpio() -> u32 =
+  return 0x00001234
 ```
 
 **Syntax:**
 - `proc` or `func` keyword marks function definition
 - Parameters with type annotations: `name: type`
-- Return type after `:`: `: type`
+- Return type after `:`: `: type` (proc) or `-> type` (fn)
 - Body uses indentation (no braces)
-- Colon at end of function signature
-
-**Difference:**
-- `proc` - Traditional procedure-style function
-- `func` - Functional-style function (semantics identical currently)
+- `proc` uses `: type =` syntax
+- `fn` uses `-> type { }` syntax
 
 ---
 
-### 2. Type System
+### 2. Peripheral Definitions (DSL)
+
+Define hardware peripherals with registers and fields:
+
+```bitn
+peripheral GPIO @ 0x40014000 {
+    register GPIO_OE: u32 @ 0x20 {
+        field OE_0: [0:1]   rw;
+        field OE_1: [1:2]   rw;
+        field OE_2: [2:3]   rw;
+    }
+    
+    register GPIO_IN: u32 @ 0x24 {
+        field IN_0: [0:1]   ro;
+        field IN_1: [1:2]   ro;
+    }
+}
+```
+
+**Syntax:**
+- `peripheral NAME @ BASE_ADDRESS { ... }`
+- Base address in hex (e.g., `0x40014000`)
+- Inside: register definitions
+- Each `register NAME: TYPE @ OFFSET { ... }`
+- Register offset in hex
+- Inside registers: field definitions
+- Each `field NAME: [START:END] ACCESS_MODE;`
+- Bit range inclusive (e.g., `[0:1]` = bits 0-1)
+- Access modes: `ro` (read-only), `wo` (write-only), `rw` (read-write), `w1c` (write-1-to-clear)
+
+**Features:**
+- ✅ Parse peripheral definitions
+- ✅ Parse register layouts with offsets
+- ✅ Parse field bit ranges
+- ✅ Parse access specifiers
+- ✅ Mix functions and peripherals in same file
+- ✅ Multiple peripherals supported
+
+---
+
+### 3. Type System
 
 #### Unsigned Integers
 - `u8` - 8-bit (0 to 255)
 - `u16` - 16-bit (0 to 65,535)
-- `u32` - 32-bit (0 to 4.3 billion) - most common
+- `u32` - 32-bit (0 to 4.3 billion)
 - `u64` - 64-bit (0 to 18.4 quintillion)
 
 #### Signed Integers
 - `i8`, `i16`, `i32`, `i64` - Signed equivalents
 
 #### Special Types
-- `void` - No return value (planned)
-
-**Status:** Type system fully integrated. Function return types validated at compile time.
-
----
-
-### 3. Variables
-
-Declare variables with `let` or `var`:
-
-```bitn
-proc example(): u32 =
-  let x: u32 = 10
-  var y: u32 = 20
-  let result: u32 = add(x, y)
-  return result
-```
-
-**Syntax:**
-- `let name: type = value` - Immutable variable
-- `var name: type = value` - Mutable variable (planned)
-- Type annotation is required
-- Values must match the declared type
-- No semicolons required (newline-terminated)
-- Scope tracked correctly in indented blocks
+- `void` - No return value
 
 ---
 
 ### 4. Named Arithmetic Operators
-
-Instead of infix operators, use named functions:
 
 ```bitn
 proc math(): u32 =
   let a: u32 = 10
   let b: u32 = 3
   
-  let sum: u32 = add(a, b)           // Addition: 13
-  let diff: u32 = sub(a, b)          // Subtraction: 7
-  let product: u32 = mul(a, b)       // Multiplication: 30
-  let quotient: u32 = div(a, b)      // Division: 3
-  let remainder: u32 = mod(a, b)     // Modulo: 1
+  let sum: u32 = add(a, b)           // 13
+  let diff: u32 = sub(a, b)          // 7
+  let product: u32 = mul(a, b)       // 30
+  let quotient: u32 = div(a, b)      // 3
+  let remainder: u32 = mod(a, b)     // 1
   
   return quotient
 ```
 
-**Named Operators:**
+**Operators:**
 - `add(x, y)` - Addition
 - `sub(x, y)` - Subtraction
 - `mul(x, y)` - Multiplication
-- `div(x, y)` - Division (integer)
-- `mod(x, y)` - Modulo (remainder)
+- `div(x, y)` - Division
+- `mod(x, y)` - Modulo
 - `neg(x)` - Negation
 
 ---
 
 ### 5. Named Bitwise Operators
 
-Specialized bitwise operations as named functions:
-
 ```bitn
 proc bitwise(): u32 =
   let a: u32 = 0xAA
   let b: u32 = 0x55
   
-  let and_result: u32 = bitand(a, b)     // Bitwise AND
-  let or_result: u32 = bitor(a, b)       // Bitwise OR
-  let xor_result: u32 = bitxor(a, b)     // Bitwise XOR
-  let left_shift: u32 = shl(a, 4)        // Left shift by 4
-  let right_shift: u32 = shr(a, 2)       // Right shift by 2
+  let and_result: u32 = bitand(a, b)     // AND
+  let or_result: u32 = bitor(a, b)       // OR
+  let xor_result: u32 = bitxor(a, b)     // XOR
+  let left_shift: u32 = shl(a, 4)        // Left shift
+  let right_shift: u32 = shr(a, 2)       // Right shift
   
   return xor_result
 ```
 
-**Named Bitwise Operators:**
+**Operators:**
 - `bitand(x, y)` - Bitwise AND
 - `bitor(x, y)` - Bitwise OR
 - `bitxor(x, y)` - Bitwise XOR
-- `shl(x, n)` - Left shift by n
-- `shr(x, n)` - Right shift by n
-- `bitnot(x)` - Bitwise NOT (unary)
+- `shl(x, n)` - Left shift
+- `shr(x, n)` - Right shift
+- `bitnot(x)` - Bitwise NOT
 
 ---
 
-### 6. Named Comparison Operators
+### 6. Variables
 
 ```bitn
-proc compare(): u32 =
-  let x: u32 = 10
-  let y: u32 = 20
-  
-  let eq: u32 = eq(x, y)    // Equals: 0 (false)
-  let ne: u32 = ne(x, y)    // Not equals: 1 (true)
-  let lt: u32 = lt(x, y)    // Less than: 1 (true)
-  let gt: u32 = gt(x, y)    // Greater than: 0 (false)
-  let le: u32 = le(x, y)    // Less or equal: 1 (true)
-  let ge: u32 = ge(x, y)    // Greater or equal: 0 (false)
-  
-  return ne
-```
-
-**Named Comparison Operators:**
-- `eq(x, y)` - Equal
-- `ne(x, y)` - Not equal
-- `lt(x, y)` - Less than
-- `gt(x, y)` - Greater than
-- `le(x, y)` - Less or equal
-- `ge(x, y)` - Greater or equal
-
----
-
-### 7. Return Statements
-
-```bitn
-proc factorial(n: u32): u32 =
-  if eq(n, 0):
-    return 1
-  return n
-```
-
-Return from a function with a value matching the return type.
-
----
-
-### 8. Number Formats
-
-```bitn
-proc numbers(): u32 =
-  let decimal: u32 = 255          // Decimal: base 10
-  let hex: u32 = 0xFF             // Hexadecimal: base 16
-  let binary: u32 = 0b11111111    // Binary: base 2
-  
-  return hex
-```
-
-**Formats:**
-- `255` - Decimal (base 10)
-- `0xFF` or `0Xff` - Hexadecimal (base 16)
-- `0b11111111` or `0B11111111` - Binary (base 2)
-
----
-
-### 9. Bit Slices (Planned Phase 3)
-
-Extract ranges of bits from values:
-
-```bitn
-proc extract(x: u32): u8 =
-  return x[8:16]  // Extract bits 8 through 15
+proc example(): u32 =
+  let x: u32 = 10          // Immutable
+  var y: u32 = 20          // Mutable
+  let result: u32 = add(x, y)
+  return result
 ```
 
 **Syntax:**
-- `value[start:end]` - Extract bits from start to end (exclusive)
-- Returns type appropriate for bit width
-- Supports all integer types
+- `let name: type = value` - Immutable
+- `var name: type = value` - Mutable
+- Type annotation required
+- Values must match type
 
 ---
 
 ## Example Programs
 
-### Example 1: Extract Bits
+### Example 1: GPIO Peripheral
 
 ```bitn
-proc extract_bits(): u32 =
-  let value: u32 = 0xFF
-  let mask: u32 = 0x0F
-  let result: u32 = bitand(value, mask)
-  return result
+peripheral GPIO @ 0x40014000 {
+    register GPIO_OE: u32 @ 0x20 {
+        field OE_0: [0:1]   rw;
+        field OE_1: [1:2]   rw;
+        field OE_2: [2:3]   rw;
+        field OE_3: [3:4]   rw;
+    }
+    
+    register GPIO_IN: u32 @ 0x24 {
+        field IN_0: [0:1]   ro;
+        field IN_1: [1:2]   ro;
+        field IN_2: [2:3]   ro;
+        field IN_3: [3:4]   ro;
+    }
+    
+    register GPIO_OUT: u32 @ 0x28 {
+        field OUT_0: [0:1]   rw;
+        field OUT_1: [1:2]   rw;
+        field OUT_2: [2:3]   rw;
+        field OUT_3: [3:4]   rw;
+    }
+}
+
+fn test_gpio() -> u32 {
+    return 0x00001234;
+}
 ```
 
-### Example 2: Bit Shifting
-
-```bitn
-proc shift_operations(): u32 =
-  let value: u32 = 1
-  let shifted_left: u32 = shl(value, 4)
-  let shifted_right: u32 = shr(shifted_left, 2)
-  return shifted_right
-```
-
-### Example 3: Multiple Bitwise Operations
+### Example 2: Bit Operations
 
 ```bitn
 proc bit_operations(): u32 =
   let a: u32 = 0xAAAA
   let b: u32 = 0x5555
-  
   let and_result: u32 = bitand(a, b)
   let or_result: u32 = bitor(a, b)
   let xor_result: u32 = bitxor(a, b)
-  
   return xor_result
 ```
 
-### Example 4: Bit Counting
+### Example 3: Arithmetic
 
 ```bitn
-proc count_set_bits(): u32 =
-  let value: u32 = 0xFFFF
-  let shifted: u32 = shr(value, 8)
-  let count: u32 = add(value, shifted)
-  return count
+proc math_ops(): u32 =
+  let x: u32 = 100
+  let y: u32 = 25
+  let result: u32 = div(x, y)
+  return result
 ```
 
 ---
@@ -312,226 +264,150 @@ proc count_set_bits(): u32 =
 
 #### From File
 ```bash
-./build/bitN examples/extract_bits.bitn
-```
-
-#### With Operations
-```bash
-./build/bitN -c 'proc test(): u32 = let x: u32 = add(10, 20); return x'
+./build/bitN examples/gpio_example.bitn
 ```
 
 ---
 
-## What the Compiler Does
+## Compiler Phases
 
-### 1. Lexical Analysis
-- Tokenizes the input
-- Recognizes keywords: `proc`, `func`, `let`, `var`, `return`, `if`, `while`
-- Recognizes indentation tokens: `INDENT`, `DEDENT`
+### Phase 1: Lexical Analysis
+- Tokenizes input
+- Recognizes keywords: `proc`, `func`, `let`, `var`, `return`, `peripheral`, `register`, `field`
 - Parses numbers: decimal, hex (0x...), binary (0b...)
 - Identifies operators and delimiters
-- Tracks line and column positions
+- Tracks line/column positions
 
-### 2. Syntax Analysis
-- Builds an Abstract Syntax Tree (AST)
-- Validates function definitions (proc/func)
-- Checks expression syntax
-- Verifies statement structure
+### Phase 2: Syntax Analysis
+- Builds Abstract Syntax Tree
+- Validates function definitions
+- Validates peripheral definitions
+- Parses field bit ranges and access modes
 - Handles indentation-based blocks
-- No braces required
 
-### 3. Semantic Analysis
-- Tracks variable declarations in scopes
+### Phase 3: Semantic Analysis
+- Tracks variable declarations
 - Infers expression types
 - Validates type compatibility
 - Detects undefined variables
-- Prevents variable redefinition
-- Validates return types
 
-### 4. Type Checking
+### Phase 4: Type Checking
 - Validates function return types
 - Checks variable initializations
-- Ensures type annotations are present
-- Reports type mismatches
-
-### 5. Output
-Displays:
-- All tokens found
-- Successfully parsed functions and structure
-- Semantic analysis results
-- Type checking results
-- Errors if any
-
----
-
-## File Organization
-
-### Headers (`include/`)
-- `token.h` - Token type definitions
-- `lexer.h` - Lexer interface
-- `ast.h` - AST node structures
-- `parser.h` - Parser interface
-- `type_system.h` - Type definitions
-- `symbol_table.h` - Symbol table API
-- `type_inference.h` - Type inference API
-
-### Sources (`src/`)
-- `token.c` - Token utilities
-- `lexer.c` - Lexical analyzer (UPDATED: indentation tracking)
-- `ast.c` - AST management
-- `parser.c` - Parser implementation (UPDATED: proc/func/var support)
-- `type_system.c` - Type operations
-- `symbol_table.c` - Scope tracking
-- `type_inference.c` - Type validation
-- `main.c` - Compiler entry point
-
-### Examples (`examples/`)
-- `extract_bits.bitn` - Bit extraction (UPDATED: Nim-style syntax)
-- `bit_manipulation.bitn` - Multiple operations (UPDATED)
-- `count_bits.bitn` - Bit counting (UPDATED)
+- Ensures type correctness
 
 ---
 
 ## Current Capabilities
 
 ### What Works ✅
-- Parse any function definition (proc/func)
-- Recognize all keywords and operators
-- Handle all number formats (decimal, hex, binary)
-- Support all named operator types
+- Parse functions (proc/func/fn)
+- Parse peripheral definitions
+- Parse register layouts
+- Parse field bit ranges
+- Recognize access modes (ro, wo, rw, w1c)
+- Handle all number formats
+- Support all named operators
 - Validate type annotations
 - Check function return types
 - Track variable scopes
-- Detect undefined variables
-- Infer expression types
-- Report compilation phases clearly
 - Full three-phase compilation pipeline
-- Indentation-based block parsing
-- Recognize `proc`, `func`, `var` keywords
+- Mix functions and peripherals in same file
 
 ### What's Coming 🔧
-- Better error messages for type mismatches
-- Advanced control flow handling
-- Full variable scope refinement
+- Better error messages
+- Advanced control flow
+- Variable scope refinement
 
 ### Future Enhancements 🚀
-- Code generation (ARM, RISC-V, x86)
-- Bitfield support
+- Code generation
+- Bitfield support (Phase 3)
 - Struct definitions
-- Array support
-- Pointer support
+- Array/pointer support
 - Optimization passes
-- Inline assembly
 
 ---
 
-## Syntax Comparison
+## File Organization
 
-### Old Syntax (Rust-style)
-```rust
-fn add(x: u32, y: u32) -> u32 {
-    return x + y;
-}
+### Headers (`include/`)
+- `token.h` - Token definitions
+- `lexer.h` - Lexer interface
+- `ast.h` - AST structures (including peripheral nodes)
+- `parser.h` - Parser interface
+- `type_system.h` - Type definitions
+- `symbol_table.h` - Symbol table API
 
-fn main() -> u32 {
-    let a: u32 = 10;
-    let b: u32 = 20;
-    return a + b;
-}
-```
+### Sources (`src/`)
+- `token.c` - Token utilities
+- `lexer.c` - Lexical analyzer
+- `ast.c` - AST management
+- `parser.c` - Parser implementation (peripheral parsing)
+- `type_system.c` - Type operations
+- `symbol_table.c` - Scope tracking
+- `main.c` - Compiler entry point
 
-### New Syntax (Nim-style) ✨
-```bitn
-proc add(x: u32, y: u32): u32 =
-  return add(x, y)
+### Examples (`examples/`)
+- `basic.bitn` - Simple function
+- `gpio_example.bitn` - GPIO peripheral definition
+- `bit_manipulation.bitn` - Bitwise operations
 
-proc main(): u32 =
-  let a: u32 = 10
-  let b: u32 = 20
-  return add(a, b)
-```
-
-**Key Changes:**
-- `fn` → `proc` or `func`
-- `-> type` → `: type`
-- `{ }` → indentation-based blocks
-- Infix operators → named functions
-- `x + y` → `add(x, y)`
-- Semicolons optional (newline-terminated)
-
----
-
-## Limitations (Current Version)
-
-- **No code generation** - Parser to type checker only
-- **Named operators only** - Infix syntax planned for Phase 3
-- **Functions not callable** - Within code (planned)
-- **No arrays or pointers** - Planned for Phase 3
-- **No structs or custom types** - Planned for Phase 4
-- **Bitfield support** - Planned for Phase 3
-- **Bit slices not yet implemented** - Phase 3
+### MCU Definitions (`mcu/`)
+- `rp2040/` - Raspberry Pi Pico definitions (WIP)
+  - `gpio.bitn` - GPIO peripheral
+  - `uart.bitn` - UART peripheral (planned)
+  - `spi.bitn` - SPI peripheral (planned)
 
 ---
 
 ## Troubleshooting
 
-### Parse Error Messages
+### Parse Errors
 Check:
-1. Function syntax: `proc name(): type = ...` or `func name(): type = ...`
-2. Variable syntax: `let x: type = value`
-3. Return statements: `return value`
-4. Type annotations present on variables
-5. Proper indentation (no tabs/spaces mix)
+1. Function syntax: `proc name(): type = ...` or `fn name() -> type { ... }`
+2. Peripheral syntax: `peripheral name @ address { ... }`
+3. Register syntax: `register name: type @ offset { ... }`
+4. Field syntax: `field name: [start:end] access_mode;`
+5. Type annotations present
+6. Proper indentation
 
 ### Build Failures
-Clean rebuild:
 ```bash
 cd ~/bit-n
 rm -rf build
-mkdir build
-cd build
-cmake ..
-make
+bash bitN_setup.sh
 ```
-
-### Performance
-- Compilation time: ~100ms (typical)
-- Memory usage: ~10MB (typical)
-- Token count: Scales linearly with source size
 
 ---
 
 ## Getting Started
 
-1. Build the compiler:
+1. Build:
    ```bash
-   bash ~/bit-n/bitN_setup.sh
+   bash bitN_setup.sh
    ```
 
-2. Try a simple program:
+2. Try examples:
    ```bash
-   ./build/bitN -c 'proc test(): u32 = return 42'
+   ./build/bitN examples/basic.bitn
+   ./build/bitN examples/gpio_example.bitn
    ```
 
-3. Expected output:
+3. Expected success:
    ```
+   ✅ Successfully parsed
    --- Semantic Analysis ---
    ✅ Semantic analysis passed
-   
-   --- Type Checking ---
-   ✅ Type checking passed
    ```
-
-4. Write your own bit(N) programs!
 
 ---
 
 ## For More Information
 
-- **Implementation Details:** See `IMPLEMENTATION.md`
-- **Project Roadmap:** See `ROADMAP.md`
-- **Project Vision:** See `VISION.md`
+- **Implementation:** See `IMPLEMENTATION.md`
+- **Roadmap:** See `ROADMAP.md`
+- **Vision:** See `VISION.md`
 
 ---
 
-**Ready to compile bit(N) code in Nim-style!** 🚀
+**Ready to work with peripheral definitions!** 🚀

@@ -1,0 +1,169 @@
+// Raspberry Pi Pico (RP2040) SPI Peripheral Definition
+// 
+// Memory Map:
+//   SPI0 Base: 0x4003C000
+//   SPI1 Base: 0x40040000
+//   Size: 4KB each
+//
+// Description:
+//   Two independent SPI (Serial Peripheral Interface) controllers
+//   for synchronous serial communication.
+
+peripheral SPI0 @ 0x4003C000 {
+    // Control Register 0
+    register SSPCR0: u32 @ 0x00 {
+        field DSS: [3:0]    rw;   // Data size select (3-15 bits)
+        field FRF: [5:4]    rw;   // Frame format (SPI, TI, Microwire)
+        field SPO: [6:6]    rw;   // Clock polarity
+        field SPH: [7:7]    rw;   // Clock phase
+        field SCR: [15:8]   rw;   // Serial clock rate
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Control Register 1
+    register SSPCR1: u32 @ 0x04 {
+        field LBM: [0:0]    rw;   // Loopback mode
+        field SSE: [1:1]    rw;   // Synchronous serial port enable
+        field MS: [2:2]     rw;   // Master/Slave select
+        field SOD: [3:3]    rw;   // Slave output disable
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Data Register
+    register SSPDR: u32 @ 0x08 {
+        field DATA: [15:0]  rw;   // Transmit/Receive FIFO
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Status Register
+    register SSPSR: u32 @ 0x0C {
+        field TFE: [0:0]    ro;   // Transmit FIFO empty
+        field TNF: [1:1]    ro;   // Transmit FIFO not full
+        field RNE: [2:2]    ro;   // Receive FIFO not empty
+        field RFF: [3:3]    ro;   // Receive FIFO full
+        field BSY: [4:4]    ro;   // Busy flag
+        field RESERVED: [31:5] rw;
+    }
+    
+    // Clock Prescale Register
+    register SSPCPSR: u32 @ 0x10 {
+        field CPSDVSR: [7:0] rw;  // Clock prescale divisor
+        field RESERVED: [31:8] rw;
+    }
+    
+    // Interrupt Mask Set/Clear Register
+    register SSPIMSC: u32 @ 0x14 {
+        field RORIM: [0:0]   rw;  // Receive overrun interrupt mask
+        field RTIM: [1:1]    rw;  // Receive timeout interrupt mask
+        field RXIM: [2:2]    rw;  // Receive FIFO interrupt mask
+        field TXIM: [3:3]    rw;  // Transmit FIFO interrupt mask
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Raw Interrupt Status Register
+    register SSPRIS: u32 @ 0x18 {
+        field RORRIS: [0:0]  ro;  // Receive overrun raw interrupt status
+        field RTRIS: [1:1]   ro;  // Receive timeout raw interrupt status
+        field RXRIS: [2:2]   ro;  // Receive FIFO raw interrupt status
+        field TXRIS: [3:3]   ro;  // Transmit FIFO raw interrupt status
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Masked Interrupt Status Register
+    register SSPMIS: u32 @ 0x1C {
+        field RORMIS: [0:0]  ro;  // Receive overrun masked interrupt status
+        field RTMIS: [1:1]   ro;  // Receive timeout masked interrupt status
+        field RXMIS: [2:2]   ro;  // Receive FIFO masked interrupt status
+        field TXMIS: [3:3]   ro;  // Transmit FIFO masked interrupt status
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Interrupt Clear Register
+    register SSPICR: u32 @ 0x20 {
+        field RORIC: [0:0]   wo;  // Receive overrun interrupt clear
+        field RTIC: [1:1]    wo;  // Receive timeout interrupt clear
+        field RESERVED: [31:2] rw;
+    }
+    
+    // DMA Control Register
+    register SSPDMACR: u32 @ 0x24 {
+        field RXDMAE: [0:0]  rw;  // Receive DMA enable
+        field TXDMAE: [1:1]  rw;  // Transmit DMA enable
+        field RESERVED: [31:2] rw;
+    }
+}
+
+// SPI1 is identical to SPI0 but at a different base address
+peripheral SPI1 @ 0x40040000 {
+    register SSPCR0: u32 @ 0x00 {
+        field DSS: [3:0]    rw;
+        field FRF: [5:4]    rw;
+        field SPO: [6:6]    rw;
+        field SPH: [7:7]    rw;
+        field SCR: [15:8]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register SSPCR1: u32 @ 0x04 {
+        field LBM: [0:0]    rw;
+        field SSE: [1:1]    rw;
+        field MS: [2:2]     rw;
+        field SOD: [3:3]    rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register SSPDR: u32 @ 0x08 {
+        field DATA: [15:0]  rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register SSPSR: u32 @ 0x0C {
+        field TFE: [0:0]    ro;
+        field TNF: [1:1]    ro;
+        field RNE: [2:2]    ro;
+        field RFF: [3:3]    ro;
+        field BSY: [4:4]    ro;
+        field RESERVED: [31:5] rw;
+    }
+    
+    register SSPCPSR: u32 @ 0x10 {
+        field CPSDVSR: [7:0] rw;
+        field RESERVED: [31:8] rw;
+    }
+    
+    register SSPIMSC: u32 @ 0x14 {
+        field RORIM: [0:0]   rw;
+        field RTIM: [1:1]    rw;
+        field RXIM: [2:2]    rw;
+        field TXIM: [3:3]    rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register SSPRIS: u32 @ 0x18 {
+        field RORRIS: [0:0]  ro;
+        field RTRIS: [1:1]   ro;
+        field RXRIS: [2:2]   ro;
+        field TXRIS: [3:3]   ro;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register SSPMIS: u32 @ 0x1C {
+        field RORMIS: [0:0]  ro;
+        field RTMIS: [1:1]   ro;
+        field RXMIS: [2:2]   ro;
+        field TXMIS: [3:3]   ro;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register SSPICR: u32 @ 0x20 {
+        field RORIC: [0:0]   wo;
+        field RTIC: [1:1]    wo;
+        field RESERVED: [31:2] rw;
+    }
+    
+    register SSPDMACR: u32 @ 0x24 {
+        field RXDMAE: [0:0]  rw;
+        field TXDMAE: [1:1]  rw;
+        field RESERVED: [31:2] rw;
+    }
+}

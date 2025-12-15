@@ -1,1 +1,32 @@
-*.bitn linguist-language=Nim
+# Syntax Highlighting Configuration
+# Maps .bitn files to Nim syntax highlighting (similar language structure)
+
+# bit(N) DSL files - use Nim syntax highlighting
+*.bitn text eol=lf working-tree-encoding=UTF-8 diff=nim
+
+# Documentation files
+*.md text eol=lf working-tree-encoding=UTF-8 diff=markdown
+
+# C/C++ source files
+*.c text eol=lf working-tree-encoding=UTF-8 diff=c
+*.h text eol=lf working-tree-encoding=UTF-8 diff=c
+
+# Build files
+CMakeLists.txt text eol=lf working-tree-encoding=UTF-8
+*.sh text eol=lf working-tree-encoding=UTF-8
+
+# Git configuration
+.gitattributes text eol=lf working-tree-encoding=UTF-8
+.gitignore text eol=lf working-tree-encoding=UTF-8
+
+# Visual Studio Code settings
+.vscode/ text eol=lf working-tree-encoding=UTF-8
+
+# Binary files
+*.o binary
+*.a binary
+*.so binary
+*.exe binary
+
+# Editor config
+.editorconfig text eol=lf working-tree-encoding=UTF-8
