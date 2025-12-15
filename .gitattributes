@@ -1,32 +1,47 @@
-# Syntax Highlighting Configuration
-# Maps .bitn files to Nim syntax highlighting (similar language structure)
+* text=auto
 
 # bit(N) DSL files - use Nim syntax highlighting
-*.bitn text eol=lf working-tree-encoding=UTF-8 diff=nim
+*.bitn text eol=lf working-tree-encoding=UTF-8 linguist-language=Nim
 
-# Documentation files
+# Markdown files
 *.md text eol=lf working-tree-encoding=UTF-8 diff=markdown
 
 # C/C++ source files
 *.c text eol=lf working-tree-encoding=UTF-8 diff=c
 *.h text eol=lf working-tree-encoding=UTF-8 diff=c
+*.cpp text eol=lf working-tree-encoding=UTF-8 diff=cpp
 
 # Build files
 CMakeLists.txt text eol=lf working-tree-encoding=UTF-8
-*.sh text eol=lf working-tree-encoding=UTF-8
+Makefile text eol=lf working-tree-encoding=UTF-8
+*.sh text eol=lf working-tree-encoding=UTF-8 diff=bash
 
 # Git configuration
 .gitattributes text eol=lf working-tree-encoding=UTF-8
 .gitignore text eol=lf working-tree-encoding=UTF-8
 
-# Visual Studio Code settings
-.vscode/ text eol=lf working-tree-encoding=UTF-8
+# Editor config
+.editorconfig text eol=lf working-tree-encoding=UTF-8
+.vscode/** text eol=lf
+
+# JSON/YAML config
+*.json text eol=lf working-tree-encoding=UTF-8 diff=json
+*.yaml text eol=lf working-tree-encoding=UTF-8 diff=yaml
+*.yml text eol=lf working-tree-encoding=UTF-8 diff=yaml
 
 # Binary files
 *.o binary
 *.a binary
 *.so binary
+*.dll binary
 *.exe binary
+*.dylib binary
+*.out binary
 
-# Editor config
-.editorconfig text eol=lf working-tree-encoding=UTF-8
+# Documentation
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg text eol=lf

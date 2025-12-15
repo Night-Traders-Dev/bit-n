@@ -1,0 +1,88 @@
+// Raspberry Pi Pico (RP2040) ADC Peripheral Definition
+// 
+// Memory Map:
+//   ADC Base: 0x4004C000
+//   Size: 4KB
+//
+// Description:
+//   12-bit analog-to-digital converter with 4 input channels
+//   + internal temperature sensor. Supports sequential sampling.
+
+peripheral ADC @ 0x4004C000 {
+    // ADC Control and Status Register
+    register CS: u32 @ 0x00 {
+        field EN: [0:0]     rw;   // ADC enable
+        field TS_EN: [1:1]  rw;   // Temperature sensor enable
+        field START_ONCE: [2:2] wo; // Start single conversion
+        field START_MANY: [3:3] rw; // Continuously start conversions
+        field READY: [8:8]  ro;   // Conversion ready
+        field ERR: [9:9]    ro;   // Conversion error
+        field ERR_STICKY: [10:10] rw; // Sticky error flag
+        field CURR_CHANNEL: [14:12] ro; // Current channel
+        field RESERVED: [31:15] rw;
+    }
+    
+    // ADC Result Register
+    register RESULT: u32 @ 0x04 {
+        field RESULT: [11:0] ro;  // 12-bit conversion result
+        field RESERVED: [31:12] rw;
+    }
+    
+    // ADC Conversion Channel Select Register
+    register FCS: u32 @ 0x08 {
+        field EN: [0:0]     rw;   // FIFO enable
+        field SHIFT: [1:1]  rw;   // Shift results
+        field THRESH: [9:4] rw;   // FIFO threshold
+        field LEVEL: [15:12] ro;  // Current FIFO level
+        field OVER: [16:16] ro;   // FIFO overflow
+        field UNDER: [17:17] ro;  // FIFO underflow
+        field RESERVED: [31:18] rw;
+    }
+    
+    // ADC FIFO Data Register
+    register FIFO: u32 @ 0x0C {
+        field VAL: [11:0]   ro;   // FIFO data
+        field RESERVED: [31:12] rw;
+    }
+    
+    // ADC Divided Clock Register
+    register DIV: u32 @ 0x10 {
+        field FRAC: [7:0]   rw;   // Fractional part of clock divisor
+        field INT: [19:8]   rw;   // Integer part of clock divisor
+        field RESERVED: [31:20] rw;
+    }
+    
+    // ADC Interrupt Raw Status Register
+    register INTR: u32 @ 0x14 {
+        field FIFO: [0:0]   ro;   // FIFO interrupt raw
+        field RESERVED: [31:1] rw;
+    }
+    
+    // ADC Interrupt Enable Register
+    register INTE: u32 @ 0x18 {
+        field FIFO: [0:0]   rw;   // FIFO interrupt enable
+        field RESERVED: [31:1] rw;
+    }
+    
+    // ADC Interrupt Force Register
+    register INTF: u32 @ 0x1C {
+        field FIFO: [0:0]   rw;   // Force FIFO interrupt
+        field RESERVED: [31:1] rw;
+    }
+    
+    // ADC Interrupt Status Register
+    register INTS: u32 @ 0x20 {
+        field FIFO: [0:0]   ro;   // FIFO interrupt status
+        field RESERVED: [31:1] rw;
+    }
+    
+    // ADC Channel Select Register
+    register CHSEL: u32 @ 0x24 {
+        field CH0: [0:0]    rw;   // Select channel 0 (GPIO26)
+        field CH1: [1:1]    rw;   // Select channel 1 (GPIO27)
+        field CH2: [2:2]    rw;   // Select channel 2 (GPIO28)
+        field CH3: [3:3]    rw;   // Select channel 3 (GPIO29)
+        field CH4: [4:4]    rw;   // Select temperature sensor
+        field RESERVED: [31:5] rw;
+    }
+}

@@ -1,4 +1,5 @@
 # bit(N) Compiler - Language Guide
+![bitN Logo](assets/bitN.jpg)
 
 ## Status: Phase 2 Complete ✅ | Peripheral DSL Support Added 🎯
 
