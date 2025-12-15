@@ -1,8 +1,9 @@
 #include "../include/type_inference.h"
+
 #include "../include/type_system.h"
+
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 
 // Create type context
 TypeContext *type_context_create(void) {
@@ -30,7 +31,6 @@ void type_context_free(TypeContext *ctx) {
 // Set current function context
 void type_context_set_function(TypeContext *ctx, const char *name, Type *return_type) {
     if (!ctx) return;
-    
     ctx->current_function = name;
     if (ctx->expected_return_type) {
         type_free(ctx->expected_return_type);
@@ -110,8 +110,8 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
             // Check type compatibility
             if (!type_compatible(left, right)) {
                 fprintf(stderr, "Error: type mismatch in binary operation\n");
-                fprintf(stderr, "  Left type: %s\n", type_to_string(left));
-                fprintf(stderr, "  Right type: %s\n", type_to_string(right));
+                fprintf(stderr, " Left type: %s\n", type_to_string(left));
+                fprintf(stderr, " Right type: %s\n", type_to_string(right));
                 ctx->error_count++;
                 type_free(left);
                 type_free(right);
@@ -133,7 +133,7 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
             
             // Verify operand is integer type
             if (!type_is_integer(obj_type)) {
-                fprintf(stderr, "Error: bit slice requires integer type, got %s\n", 
+                fprintf(stderr, "Error: bit slice requires integer type, got %s\n",
                         type_to_string(obj_type));
                 ctx->error_count++;
                 type_free(obj_type);
@@ -142,7 +142,6 @@ Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr) {
             
             // Determine result type based on slice width
             uint32_t width = expr->data.bit_slice.end - expr->data.bit_slice.start;
-            
             if (width <= 0) {
                 fprintf(stderr, "Error: invalid bit slice range [%u:%u]\n",
                         expr->data.bit_slice.start, expr->data.bit_slice.end);
@@ -223,7 +222,10 @@ static Type *infer_binary_op_type(TypeContext *ctx, BinaryOp op, Type *left, Typ
     }
 }
 
-// Check types in a statement
+// ============================================================================
+// Check types in a statement (FIXED for let/var)
+// ============================================================================
+
 int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
     if (!ctx || !stmt) {
         return 1;
@@ -231,7 +233,16 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
     
     switch (stmt->kind) {
         case STMT_VAR_DECL: {
-            // Check initializer type matches declaration
+            // ============= NEW: Enhanced let/var type checking =============
+            
+            // 1) Enforce initialization for 'let' (is_mut = 0)
+            if (!stmt->data.var_decl.is_mut && !stmt->data.var_decl.init) {
+                fprintf(stderr, "Error: 'let' declarations must have an initializer\n");
+                ctx->error_count++;
+                return 0;
+            }
+            
+            // 2) If initializer exists, type-check it
             if (stmt->data.var_decl.init) {
                 Type *init_type = infer_expr_type(ctx, stmt->data.var_decl.init);
                 if (!init_type) {
@@ -239,28 +250,37 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
                     return 0;
                 }
                 
+                // Check types are compatible
                 if (!type_compatible(stmt->data.var_decl.type, init_type)) {
                     fprintf(stderr, "Error: initializer type mismatch\n");
-                    fprintf(stderr, "  Variable type: %s\n", type_to_string(stmt->data.var_decl.type));
-                    fprintf(stderr, "  Initializer type: %s\n", type_to_string(init_type));
+                    fprintf(stderr, " Variable type: %s\n", type_to_string(stmt->data.var_decl.type));
+                    fprintf(stderr, " Initializer type: %s\n", type_to_string(init_type));
                     ctx->error_count++;
                     type_free(init_type);
                     return 0;
                 }
+                
                 type_free(init_type);
             }
             
-            // Add variable to symbol table
+            // 3) Add variable to symbol table with correct flags
             Type *var_type = type_clone(stmt->data.var_decl.type);
-            if (!symbol_table_add_symbol(ctx->symbols, 
-                                        stmt->data.var_decl.name,
-                                        var_type,
-                                        stmt->data.var_decl.is_mut)) {
-                fprintf(stderr, "Error: symbol '%s' already defined in this scope\n", 
+            int is_param = 0;
+            int is_mutable = stmt->data.var_decl.is_mut;
+            int is_initialized = (stmt->data.var_decl.init != NULL);
+            
+            if (!symbol_table_add_symbol(ctx->symbols,
+                                       stmt->data.var_decl.name,
+                                       var_type,
+                                       is_param,
+                                       is_mutable,
+                                       is_initialized)) {
+                fprintf(stderr, "Error: symbol '%s' already defined in this scope\n",
                         stmt->data.var_decl.name);
                 ctx->error_count++;
                 return 0;
             }
+            
             return 1;
         }
         
@@ -288,24 +308,25 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
                 if (ctx->expected_return_type) {
                     if (!type_compatible(ctx->expected_return_type, ret_type)) {
                         fprintf(stderr, "Error: return type mismatch\n");
-                        fprintf(stderr, "  Expected: %s\n", type_to_string(ctx->expected_return_type));
-                        fprintf(stderr, "  Got: %s\n", type_to_string(ret_type));
+                        fprintf(stderr, " Expected: %s\n", type_to_string(ctx->expected_return_type));
+                        fprintf(stderr, " Got: %s\n", type_to_string(ret_type));
                         ctx->error_count++;
                         type_free(ret_type);
                         return 0;
                     }
                 }
+                
                 type_free(ret_type);
             }
             return 1;
         }
         
         case STMT_BLOCK: {
-            // Push new scope for block
+            // ✅ Push new scope for block
             symbol_table_push_scope(ctx->symbols);
-            
             int result = 1;
-            // Use .count field for block statements
+            
+            // Check all statements in block
             if (stmt->data.block.statements && stmt->data.block.count > 0) {
                 for (size_t i = 0; i < stmt->data.block.count; i++) {
                     if (!check_stmt_types(ctx, stmt->data.block.statements[i])) {
@@ -314,7 +335,7 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
                 }
             }
             
-            // Pop scope when exiting block
+            // ✅ Pop scope when exiting block
             symbol_table_pop_scope(ctx->symbols);
             return result;
         }
@@ -334,7 +355,10 @@ int check_stmt_types(TypeContext *ctx, ASTStmt *stmt) {
     }
 }
 
-// Check types in a function
+// ============================================================================
+// Check types in a function (FIXED API calls)
+// ============================================================================
+
 int check_function_types(TypeContext *ctx, ASTFunctionDef *func) {
     if (!ctx || !func) {
         return 1;
@@ -346,13 +370,15 @@ int check_function_types(TypeContext *ctx, ASTFunctionDef *func) {
     // Set function context
     type_context_set_function(ctx, func->name, func->return_type);
     
-    // Add parameters to symbol table
+    // Add parameters to symbol table (FIXED: use new API)
     for (size_t i = 0; i < func->param_count; i++) {
         Type *param_type = type_clone(func->param_types[i]);
         if (!symbol_table_add_symbol(ctx->symbols,
                                     func->param_names[i],
                                     param_type,
-                                    1)) {
+                                    1,                  // is_param = 1
+                                    0,                  // is_mutable = 0 (parameters are immutable)
+                                    1)) {               // is_initialized = 1
             fprintf(stderr, "Error: parameter '%s' already defined\n", func->param_names[i]);
             ctx->error_count++;
             symbol_table_pop_scope(ctx->symbols);
@@ -368,11 +394,13 @@ int check_function_types(TypeContext *ctx, ASTFunctionDef *func) {
     
     // Pop function scope
     symbol_table_pop_scope(ctx->symbols);
-    
     return result;
 }
 
-// Check types in entire program
+// ============================================================================
+// Check types in entire program (FIXED API calls)
+// ============================================================================
+
 int check_program_types(TypeContext *ctx, ASTProgram *program) {
     if (!ctx || !program) {
         return 1;
@@ -385,8 +413,13 @@ int check_program_types(TypeContext *ctx, ASTProgram *program) {
         ASTFunctionDef *func = program->functions[i];
         Type *func_type = type_clone(func->return_type);
         
-        // Add function to symbol table (as a special marker)
-        if (!symbol_table_add_symbol(ctx->symbols, func->name, func_type, 0)) {
+        // Add function to symbol table as a special marker (FIXED: use new API)
+        if (!symbol_table_add_symbol(ctx->symbols,
+                                    func->name,
+                                    func_type,
+                                    0,      // is_param = 0
+                                    0,      // is_mutable = 0
+                                    1)) {   // is_initialized = 1
             fprintf(stderr, "Error: function '%s' already defined\n", func->name);
             ctx->error_count++;
             all_ok = 0;

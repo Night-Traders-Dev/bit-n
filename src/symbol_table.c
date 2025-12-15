@@ -1,5 +1,7 @@
 #include "symbol_table.h"
-#include "type_system.h" 
+
+#include "type_system.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -56,7 +58,6 @@ void symbol_table_free(SymbolTable *table) {
 // Push a new scope (entering a block)
 void symbol_table_push_scope(SymbolTable *table) {
     if (!table) return;
-    
     Scope *new_scope = scope_create(table->current_scope);
     table->current_scope = new_scope;
 }
@@ -80,7 +81,12 @@ void symbol_table_pop_scope(SymbolTable *table) {
 
 // Add a symbol to the current scope
 // Returns 1 on success, 0 if symbol already exists in current scope
-int symbol_table_add_symbol(SymbolTable *table, const char *name, Type *type, int is_param) {
+int symbol_table_add_symbol(SymbolTable *table,
+                            const char *name,
+                            Type *type,
+                            int is_param,
+                            int is_mutable,
+                            int is_initialized) {
     if (!table || !table->current_scope || !name || !type) {
         return 0;
     }
@@ -94,14 +100,14 @@ int symbol_table_add_symbol(SymbolTable *table, const char *name, Type *type, in
     // Resize if necessary
     if (table->current_scope->symbol_count >= table->current_scope->capacity) {
         table->current_scope->capacity *= 2;
-        table->current_scope->symbols = realloc(table->current_scope->symbols, 
-                                                 table->current_scope->capacity * sizeof(Symbol));
+        table->current_scope->symbols = realloc(table->current_scope->symbols,
+                                               table->current_scope->capacity * sizeof(Symbol));
     }
     
     // Add symbol with copied name
     size_t idx = table->current_scope->symbol_count;
     
-    // ✅ FIX: Copy the name string instead of storing pointer
+    // ✅ Copy the name string instead of storing pointer
     if (name) {
         table->current_scope->symbols[idx].name = malloc(strlen(name) + 1);
         strcpy((char *)table->current_scope->symbols[idx].name, name);
@@ -111,7 +117,8 @@ int symbol_table_add_symbol(SymbolTable *table, const char *name, Type *type, in
     
     table->current_scope->symbols[idx].type = type;
     table->current_scope->symbols[idx].is_parameter = is_param;
-    table->current_scope->symbols[idx].is_initialized = 1;
+    table->current_scope->symbols[idx].is_mutable = is_mutable;
+    table->current_scope->symbols[idx].is_initialized = is_initialized;
     table->current_scope->symbol_count++;
     
     return 1;
@@ -131,7 +138,7 @@ Symbol *symbol_table_lookup(SymbolTable *table, const char *name) {
         scope = scope->parent;
     }
     
-    return NULL;  // Not found in any scope
+    return NULL; // Not found in any scope
 }
 
 // Lookup symbol in current scope only (no parent lookup)
@@ -144,7 +151,7 @@ Symbol *symbol_table_lookup_local(SymbolTable *table, const char *name) {
         }
     }
     
-    return NULL;  // Not found in current scope
+    return NULL; // Not found in current scope
 }
 
 // Check if symbol is defined in any scope
