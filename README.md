@@ -1,17 +1,10 @@
-# bit(N) Compiler - Language Guide
-![bit(N) Compiler - Language Guide](assets/bitN.jpg)
+# bit(N) Compiler - Device Definition & Code Generation Guide
 
-## Status: Phase 2 Complete ✅ | Peripheral DSL Support Added 🎯
+![bit(N) Logo](assets/bit(N).jpg)
 
-**Latest Update:** Full peripheral DSL support implemented! Namespace structure for MCU definitions added. Semantic analysis framework extended for hardware abstractions.
+## Status: Device DSL Complete 🚀 | C Code Generation Operational ✅
 
-The bit(N) compiler now includes:
-- ✅ Lexical analysis (tokenization) - Complete with DSL tokens
-- ✅ Syntax analysis (parsing) - Indentation-based blocks + peripherals
-- ✅ AST construction - Functions AND peripheral definitions
-- ✅ Type system integration
-- ✅ Semantic analysis (symbol table, type inference)
-- ✅ **Peripheral DSL parsing** - register, field, access modes
+**Latest Update:** Device definition language fully operational. C header generation from `.bitn` device files produces register structures, bit field macros, and inline accessor functions.
 
 ---
 
@@ -24,391 +17,623 @@ cd ~/bit-n
 bash bitN_setup.sh
 ```
 
-### First Program
+### Generate C Headers
 
 ```bash
-./build/bitN examples/basic.bitn
+./build/bitN --compile device.bitn
 ```
 
-### Expected Output
+Creates: `device.h` with register structures and bit field accessors
 
+---
+
+## Device Definition Language
+
+Define hardware peripherals with registers and bitfields:
+
+```bitn
+peripheral UART {
+    base_address: 0x40000000
+    
+    register CONTROL {
+        type: u32
+        offset: 0x0
+        
+        field ENABLE {
+            start_bit: 0
+            end_bit: 1
+            access: rw
+        }
+        
+        field BAUDRATE {
+            start_bit: 1
+            end_bit: 16
+            access: rw
+        }
+    }
+    
+    register STATUS {
+        type: u32
+        offset: 0x4
+        
+        field TX_READY {
+            start_bit: 0
+            end_bit: 1
+            access: ro
+        }
+        
+        field RX_READY {
+            start_bit: 1
+            end_bit: 2
+            access: ro
+        }
+    }
+}
 ```
-=== bit(N) Compiler with DSL Support ===
 
---- Lexical Analysis ---
-Token(PROC, ...)
-...
+---
 
---- Parsing ---
-✅ Successfully parsed
-   Functions: 1
-   Peripherals: 0
+## Generated C Code
+
+### Register Structure
+
+```c
+#define UART ((volatile UART_t *)0x40000000)
+
+typedef struct {
+    uint32_t CONTROL;  // @ offset 0x0
+    uint32_t STATUS;   // @ offset 0x4
+} UART_t;
+```
+
+### Bit Field Macros
+
+```c
+// Read operations
+#define CONTROL_ENABLE_GET(reg)      (((reg) >> 0) & 0x1)
+#define CONTROL_BAUDRATE_GET(reg)    (((reg) >> 1) & 0x7fff)
+#define STATUS_TX_READY_GET(reg)     (((reg) >> 0) & 0x1)
+
+// Modify operations
+#define CONTROL_ENABLE_SET(reg, val) (((reg) & ~(0x1 << 0)) | ((val & 0x1) << 0))
+#define CONTROL_BAUDRATE_SET(reg, val) (((reg) & ~(0x7fff << 1)) | ((val & 0x7fff) << 1))
+```
+
+### Inline Accessor Functions
+
+```c
+static inline uint32_t CONTROL_ENABLE_read(uint32_t reg) {
+    return (reg >> 0) & 0x1;
+}
+
+static inline uint32_t CONTROL_ENABLE_write(uint32_t reg, uint32_t val) {
+    return (reg & ~(0x1 << 0)) | ((val & 0x1) << 0);
+}
+
+static inline uint32_t CONTROL_BAUDRATE_read(uint32_t reg) {
+    return (reg >> 1) & 0x7fff;
+}
+
+static inline uint32_t CONTROL_BAUDRATE_write(uint32_t reg, uint32_t val) {
+    return (reg & ~(0x7fff << 1)) | ((val & 0x7fff) << 1);
+}
 ```
 
 ---
 
 ## Language Features
 
-### 1. Functions (proc/func)
+### 1. Peripherals
 
-Define functions with explicit return types:
+Define a hardware peripheral with memory-mapped base address:
 
 ```bitn
-proc add(x: u32, y: u32): u32 =
-  return add(x, y)
-
-fn test_gpio() -> u32 =
-  return 0x00001234
+peripheral NAME {
+    base_address: 0xADDRESS
+    ...
+}
 ```
 
-**Syntax:**
-- `proc` or `func` keyword marks function definition
-- Parameters with type annotations: `name: type`
-- Return type after `:`: `: type` (proc) or `-> type` (fn)
-- Body uses indentation (no braces)
-- `proc` uses `: type =` syntax
-- `fn` uses `-> type { }` syntax
+**Example:**
+```bitn
+peripheral GPIO {
+    base_address: 0x50000000
+    ...
+}
+
+peripheral I2C {
+    base_address: 0x60000000
+    ...
+}
+```
+
+### 2. Registers
+
+Define registers within a peripheral:
+
+```bitn
+register NAME {
+    type: u32        # u8, u16, u32, or u64
+    offset: 0x0      # Offset from base_address
+    ...
+}
+```
+
+**Example:**
+```bitn
+register CONTROL {
+    type: u32
+    offset: 0x0
+}
+
+register STATUS {
+    type: u32
+    offset: 0x4
+}
+
+register DATA {
+    type: u16
+    offset: 0x8
+}
+```
+
+### 3. Bitfields
+
+Define individual bit fields within registers:
+
+```bitn
+field NAME {
+    start_bit: 0      # Starting bit (inclusive)
+    end_bit: 8        # Ending bit (exclusive)
+    access: rw        # ro, wo, rw, w1c
+}
+```
+
+**Example:**
+```bitn
+field ENABLE {
+    start_bit: 0
+    end_bit: 1
+    access: rw
+}
+
+field BAUDRATE {
+    start_bit: 1
+    end_bit: 16
+    access: rw
+}
+
+field ERROR {
+    start_bit: 16
+    end_bit: 32
+    access: ro
+}
+```
+
+### 4. Access Types
+
+- **ro** - Read-only
+- **wo** - Write-only
+- **rw** - Read-write
+- **w1c** - Write-1-to-clear
 
 ---
 
-### 2. Peripheral Definitions (DSL)
+## Usage Examples
 
-Define hardware peripherals with registers and fields:
+### Example 1: UART Device
 
 ```bitn
-peripheral GPIO @ 0x40014000 {
-    register GPIO_OE: u32 @ 0x20 {
-        field OE_0: [0:1]   rw;
-        field OE_1: [1:2]   rw;
-        field OE_2: [2:3]   rw;
+peripheral UART {
+    base_address: 0x40000000
+    
+    register CONTROL {
+        type: u32
+        offset: 0x0
+        
+        field ENABLE { start_bit: 0, end_bit: 1, access: rw }
+        field TX_EN { start_bit: 1, end_bit: 2, access: rw }
+        field RX_EN { start_bit: 2, end_bit: 3, access: rw }
     }
     
-    register GPIO_IN: u32 @ 0x24 {
-        field IN_0: [0:1]   ro;
-        field IN_1: [1:2]   ro;
+    register STATUS {
+        type: u32
+        offset: 0x4
+        
+        field TX_READY { start_bit: 0, end_bit: 1, access: ro }
+        field RX_READY { start_bit: 1, end_bit: 2, access: ro }
+    }
+    
+    register DATA {
+        type: u8
+        offset: 0x8
     }
 }
 ```
 
-**Syntax:**
-- `peripheral NAME @ BASE_ADDRESS { ... }`
-- Base address in hex (e.g., `0x40014000`)
-- Inside: register definitions
-- Each `register NAME: TYPE @ OFFSET { ... }`
-- Register offset in hex
-- Inside registers: field definitions
-- Each `field NAME: [START:END] ACCESS_MODE;`
-- Bit range inclusive (e.g., `[0:1]` = bits 0-1)
-- Access modes: `ro` (read-only), `wo` (write-only), `rw` (read-write), `w1c` (write-1-to-clear)
-
-**Features:**
-- ✅ Parse peripheral definitions
-- ✅ Parse register layouts with offsets
-- ✅ Parse field bit ranges
-- ✅ Parse access specifiers
-- ✅ Mix functions and peripherals in same file
-- ✅ Multiple peripherals supported
-
----
-
-### 3. Type System
-
-#### Unsigned Integers
-- `u8` - 8-bit (0 to 255)
-- `u16` - 16-bit (0 to 65,535)
-- `u32` - 32-bit (0 to 4.3 billion)
-- `u64` - 64-bit (0 to 18.4 quintillion)
-
-#### Signed Integers
-- `i8`, `i16`, `i32`, `i64` - Signed equivalents
-
-#### Special Types
-- `void` - No return value
-
----
-
-### 4. Named Arithmetic Operators
+### Example 2: GPIO Device
 
 ```bitn
-proc math(): u32 =
-  let a: u32 = 10
-  let b: u32 = 3
-  
-  let sum: u32 = add(a, b)           // 13
-  let diff: u32 = sub(a, b)          // 7
-  let product: u32 = mul(a, b)       // 30
-  let quotient: u32 = div(a, b)      // 3
-  let remainder: u32 = mod(a, b)     // 1
-  
-  return quotient
-```
-
-**Operators:**
-- `add(x, y)` - Addition
-- `sub(x, y)` - Subtraction
-- `mul(x, y)` - Multiplication
-- `div(x, y)` - Division
-- `mod(x, y)` - Modulo
-- `neg(x)` - Negation
-
----
-
-### 5. Named Bitwise Operators
-
-```bitn
-proc bitwise(): u32 =
-  let a: u32 = 0xAA
-  let b: u32 = 0x55
-  
-  let and_result: u32 = bitand(a, b)     // AND
-  let or_result: u32 = bitor(a, b)       // OR
-  let xor_result: u32 = bitxor(a, b)     // XOR
-  let left_shift: u32 = shl(a, 4)        // Left shift
-  let right_shift: u32 = shr(a, 2)       // Right shift
-  
-  return xor_result
-```
-
-**Operators:**
-- `bitand(x, y)` - Bitwise AND
-- `bitor(x, y)` - Bitwise OR
-- `bitxor(x, y)` - Bitwise XOR
-- `shl(x, n)` - Left shift
-- `shr(x, n)` - Right shift
-- `bitnot(x)` - Bitwise NOT
-
----
-
-### 6. Variables
-
-```bitn
-proc example(): u32 =
-  let x: u32 = 10          // Immutable
-  var y: u32 = 20          // Mutable
-  let result: u32 = add(x, y)
-  return result
-```
-
-**Syntax:**
-- `let name: type = value` - Immutable
-- `var name: type = value` - Mutable
-- Type annotation required
-- Values must match type
-
----
-
-## Example Programs
-
-### Example 1: GPIO Peripheral
-
-```bitn
-peripheral GPIO @ 0x40014000 {
-    register GPIO_OE: u32 @ 0x20 {
-        field OE_0: [0:1]   rw;
-        field OE_1: [1:2]   rw;
-        field OE_2: [2:3]   rw;
-        field OE_3: [3:4]   rw;
+peripheral GPIO {
+    base_address: 0x50000000
+    
+    register DIR {
+        type: u32
+        offset: 0x0
+        
+        field OUTPUT {
+            start_bit: 0
+            end_bit: 32
+            access: rw
+        }
     }
     
-    register GPIO_IN: u32 @ 0x24 {
-        field IN_0: [0:1]   ro;
-        field IN_1: [1:2]   ro;
-        field IN_2: [2:3]   ro;
-        field IN_3: [3:4]   ro;
+    register OUT {
+        type: u32
+        offset: 0x4
+        
+        field PIN_STATE {
+            start_bit: 0
+            end_bit: 32
+            access: rw
+        }
     }
     
-    register GPIO_OUT: u32 @ 0x28 {
-        field OUT_0: [0:1]   rw;
-        field OUT_1: [1:2]   rw;
-        field OUT_2: [2:3]   rw;
-        field OUT_3: [3:4]   rw;
+    register IN {
+        type: u32
+        offset: 0x8
+        
+        field PIN_STATE {
+            start_bit: 0
+            end_bit: 32
+            access: ro
+        }
     }
-}
-
-fn test_gpio() -> u32 {
-    return 0x00001234;
 }
 ```
 
-### Example 2: Bit Operations
+### Example 3: Multiple Devices
 
 ```bitn
-proc bit_operations(): u32 =
-  let a: u32 = 0xAAAA
-  let b: u32 = 0x5555
-  let and_result: u32 = bitand(a, b)
-  let or_result: u32 = bitor(a, b)
-  let xor_result: u32 = bitxor(a, b)
-  return xor_result
-```
+peripheral TIMER {
+    base_address: 0x40001000
+    
+    register COUNTER {
+        type: u32
+        offset: 0x0
+        
+        field VALUE {
+            start_bit: 0
+            end_bit: 32
+            access: rw
+        }
+    }
+}
 
-### Example 3: Arithmetic
-
-```bitn
-proc math_ops(): u32 =
-  let x: u32 = 100
-  let y: u32 = 25
-  let result: u32 = div(x, y)
-  return result
+peripheral I2C {
+    base_address: 0x40002000
+    
+    register CONTROL {
+        type: u8
+        offset: 0x0
+        
+        field START { start_bit: 0, end_bit: 1, access: wo }
+        field STOP { start_bit: 1, end_bit: 2, access: wo }
+        field ACK { start_bit: 2, end_bit: 3, access: rw }
+    }
+}
 ```
 
 ---
 
-## Usage
+## Compilation Workflow
 
-### Compile from Command Line
+### Step 1: Write Device Definition
 
-#### Inline Code
 ```bash
-./build/bitN -c 'proc main(): u32 = return 42'
+cat > my_device.bitn << 'EOF'
+peripheral UART {
+    base_address: 0x40000000
+    register CONTROL {
+        type: u32
+        offset: 0x0
+        field ENABLE { start_bit: 0, end_bit: 1, access: rw }
+    }
+}
+EOF
 ```
 
-#### From File
+### Step 2: Generate C Headers
+
 ```bash
-./build/bitN examples/gpio_example.bitn
+./build/bitN --compile my_device.bitn
+```
+
+### Step 3: Use in Your Code
+
+```c
+#include "my_device.h"
+
+int main() {
+    volatile UART_t *uart = UART;
+    
+    // Enable UART
+    uart->CONTROL = CONTROL_ENABLE_SET(uart->CONTROL, 1);
+    
+    // Check if enabled
+    if (CONTROL_ENABLE_GET(uart->CONTROL)) {
+        // UART is enabled
+    }
+    
+    return 0;
+}
 ```
 
 ---
 
-## Compiler Phases
+## Compiler Options
 
-### Phase 1: Lexical Analysis
-- Tokenizes input
-- Recognizes keywords: `proc`, `func`, `let`, `var`, `return`, `peripheral`, `register`, `field`
-- Parses numbers: decimal, hex (0x...), binary (0b...)
-- Identifies operators and delimiters
-- Tracks line/column positions
+```bash
+./build/bitN device.bitn
+```
+Parse and display device structure
 
-### Phase 2: Syntax Analysis
-- Builds Abstract Syntax Tree
-- Validates function definitions
-- Validates peripheral definitions
-- Parses field bit ranges and access modes
-- Handles indentation-based blocks
+```bash
+./build/bitN --compile device.bitn
+```
+Generate C headers (creates device.h)
 
-### Phase 3: Semantic Analysis
-- Tracks variable declarations
-- Infers expression types
-- Validates type compatibility
-- Detects undefined variables
+```bash
+./build/bitN --compile device.bitn --verbose
+```
+Generate with detailed output
 
-### Phase 4: Type Checking
-- Validates function return types
-- Checks variable initializations
-- Ensures type correctness
+```bash
+./build/bitN -c 'peripheral TEST { base_address: 0x1000 }'
+```
+Parse inline device definition
 
 ---
 
-## Current Capabilities
+## Output Files
 
-### What Works ✅
-- Parse functions (proc/func/fn)
-- Parse peripheral definitions
-- Parse register layouts
-- Parse field bit ranges
-- Recognize access modes (ro, wo, rw, w1c)
-- Handle all number formats
-- Support all named operators
-- Validate type annotations
-- Check function return types
-- Track variable scopes
-- Full three-phase compilation pipeline
-- Mix functions and peripherals in same file
+### Input: `uart.bitn`
+**File Contents:**
+```bitn
+peripheral UART { ... }
+```
 
-### What's Coming 🔧
-- Better error messages
-- Advanced control flow
-- Variable scope refinement
-
-### Future Enhancements 🚀
-- Code generation
-- Bitfield support (Phase 3)
-- Struct definitions
-- Array/pointer support
-- Optimization passes
+### Output: `uart.h`
+**Generated C header with:**
+- Memory-mapped structure
+- Base address macro
+- Register definitions
+- Bit field getter macros
+- Bit field setter macros
+- Inline accessor functions
 
 ---
 
-## File Organization
+## Generated Accessor Functions
 
-### Headers (`include/`)
-- `token.h` - Token definitions
-- `lexer.h` - Lexer interface
-- `ast.h` - AST structures (including peripheral nodes)
-- `parser.h` - Parser interface
-- `type_system.h` - Type definitions
-- `symbol_table.h` - Symbol table API
+For each bitfield, the compiler generates:
 
-### Sources (`src/`)
-- `token.c` - Token utilities
-- `lexer.c` - Lexical analyzer
-- `ast.c` - AST management
-- `parser.c` - Parser implementation (peripheral parsing)
-- `type_system.c` - Type operations
-- `symbol_table.c` - Scope tracking
-- `main.c` - Compiler entry point
+**Read Function:**
+```c
+static inline TYPE REGISTER_FIELD_read(uint32_t reg) {
+    return (reg >> start_bit) & MASK;
+}
+```
 
-### Examples (`examples/`)
-- `basic.bitn` - Simple function
-- `gpio_example.bitn` - GPIO peripheral definition
-- `bit_manipulation.bitn` - Bitwise operations
+**Write Function:**
+```c
+static inline uint32_t REGISTER_FIELD_write(uint32_t reg, TYPE val) {
+    return (reg & ~(MASK << start_bit)) | ((val & MASK) << start_bit);
+}
+```
 
-### MCU Definitions (`mcu/`)
-- `rp2040/` - Raspberry Pi Pico definitions (WIP)
-  - `gpio.bitn` - GPIO peripheral
-  - `uart.bitn` - UART peripheral (planned)
-  - `spi.bitn` - SPI peripheral (planned)
+These compile to optimal inline code with zero overhead.
+
+---
+
+## Type System
+
+Supported register types:
+- `u8` - 8-bit unsigned
+- `u16` - 16-bit unsigned
+- `u32` - 32-bit unsigned
+- `u64` - 64-bit unsigned
+
+Bitfield types are automatically inferred from bit ranges.
+
+---
+
+## Best Practices
+
+### 1. Clear Naming
+
+```bitn
+# ✅ Good
+field TX_READY { start_bit: 0, end_bit: 1, access: ro }
+field RX_ERROR { start_bit: 8, end_bit: 16, access: ro }
+
+# ❌ Avoid
+field F1 { start_bit: 0, end_bit: 1, access: ro }
+field F2 { start_bit: 8, end_bit: 16, access: ro }
+```
+
+### 2. Bit Range Organization
+
+```bitn
+# ✅ Organize by function
+field ENABLE { start_bit: 0, end_bit: 1, access: rw }
+field MODE { start_bit: 1, end_bit: 4, access: rw }
+field STATUS { start_bit: 4, end_bit: 8, access: ro }
+
+# ❌ Scattered layout
+field ENABLE { start_bit: 15, end_bit: 16, access: rw }
+field MODE { start_bit: 0, end_bit: 3, access: rw }
+```
+
+### 3. Correct Access Types
+
+```bitn
+# ✅ Accurate access control
+field CONTROL { start_bit: 0, end_bit: 8, access: rw }
+field STATUS { start_bit: 8, end_bit: 16, access: ro }
+field CLEAR { start_bit: 16, end_bit: 32, access: w1c }
+
+# ❌ Overly permissive
+field STATUS { start_bit: 8, end_bit: 16, access: rw }  # Should be ro
+```
 
 ---
 
 ## Troubleshooting
 
-### Parse Errors
-Check:
-1. Function syntax: `proc name(): type = ...` or `fn name() -> type { ... }`
-2. Peripheral syntax: `peripheral name @ address { ... }`
-3. Register syntax: `register name: type @ offset { ... }`
-4. Field syntax: `field name: [start:end] access_mode;`
-5. Type annotations present
-6. Proper indentation
+### "No peripherals found to generate code for"
 
-### Build Failures
-```bash
-cd ~/bit-n
-rm -rf build
-bash bitN_setup.sh
+This means your `.bitn` file contains functions instead of peripheral definitions.
+
+**Wrong:**
+```bitn
+proc main(): u32 = return 42
+```
+
+**Correct:**
+```bitn
+peripheral UART {
+    base_address: 0x40000000
+    ...
+}
+```
+
+### Generated file is empty
+
+1. Check file permissions
+2. Ensure --compile flag is used
+3. Verify peripheral definitions exist
+4. Check for parse errors in output
+
+### Bit field ordering issues
+
+Ensure bit ranges don't overlap and are within register width:
+
+```bitn
+# ✅ Valid
+field FIELD1 { start_bit: 0, end_bit: 8, access: rw }
+field FIELD2 { start_bit: 8, end_bit: 16, access: rw }
+
+# ❌ Invalid (overlapping)
+field FIELD1 { start_bit: 0, end_bit: 8, access: rw }
+field FIELD2 { start_bit: 4, end_bit: 12, access: rw }
 ```
 
 ---
 
-## Getting Started
+## Integration with CMake
 
-1. Build:
-   ```bash
-   bash bitN_setup.sh
-   ```
+```cmake
+# Add code generation as build step
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/device.h
+    COMMAND ${BITN_COMPILER} --compile ${CMAKE_CURRENT_SOURCE_DIR}/device.bitn
+    MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/device.bitn
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
 
-2. Try examples:
-   ```bash
-   ./build/bitN examples/basic.bitn
-   ./build/bitN examples/gpio_example.bitn
-   ```
+add_library(device_headers ${CMAKE_CURRENT_BINARY_DIR}/device.h)
+```
 
-3. Expected success:
-   ```
-   ✅ Successfully parsed
-   --- Semantic Analysis ---
-   ✅ Semantic analysis passed
-   ```
+---
+
+## File Organization
+
+```
+project/
+├── bitn/
+│   ├── uart.bitn
+│   ├── gpio.bitn
+│   └── timer.bitn
+├── include/
+│   ├── uart.h          # Generated
+│   ├── gpio.h          # Generated
+│   └── timer.h         # Generated
+└── src/
+    ├── main.c
+    └── drivers/
+```
+
+---
+
+## What Gets Generated
+
+For each peripheral definition, you get:
+
+✅ **Memory-mapped structure** - Correctly sized and aligned
+✅ **Base address macro** - Easy peripheral access
+✅ **Register fields** - Proper offsets
+✅ **Bit field getters** - Safe field reading
+✅ **Bit field setters** - Safe field modification
+✅ **Inline functions** - Zero-overhead abstractions
+
+---
+
+## Performance
+
+Generated code:
+- **Compiles to optimal machine instructions**
+- **No runtime overhead**
+- **Inlined by C compiler**
+- **Zero-cost abstractions**
+
+Example optimization:
+```c
+// What you write:
+uart->CONTROL = CONTROL_BAUDRATE_SET(uart->CONTROL, 9600);
+
+// What assembler sees (approximate):
+mov eax, DWORD PTR [rsi]      // Load CONTROL
+and eax, 0xfffffe              // Clear baudrate bits
+or eax, 0x25b8                 // Set new baudrate
+mov DWORD PTR [rsi], eax       // Store back
+```
+
+---
+
+## Current Capabilities
+
+### Works ✅
+- Parse peripheral definitions
+- Generate C headers
+- Create register structures
+- Generate bit field macros
+- Create accessor functions
+- Handle multiple devices
+- Automatic file naming
+- Command-line compilation
+
+### Planned 📅
+- Interrupt configuration
+- DMA descriptors
+- Advanced bitfield patterns
+- Code templates
+- Documentation generation
+
+---
+
+## Examples
+
+See `EXAMPLE_uart_device.bitn` in workspace for a complete working example.
 
 ---
 
 ## For More Information
 
-- **Implementation:** See `IMPLEMENTATION.md`
-- **Roadmap:** See `ROADMAP.md`
-- **Vision:** See `VISION.md`
+- **Implementation Details:** See `IMPLEMENTATION.md`
+- **Development Roadmap:** See `ROADMAP.md`
+- **Strategic Vision:** See `VISION.md`
 
 ---
 
-**Ready to work with peripheral definitions!** 🚀
+**Ready to generate C headers from device definitions!** 🚀

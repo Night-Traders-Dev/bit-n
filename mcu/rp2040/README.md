@@ -1,5 +1,7 @@
 # Raspberry Pi Pico (RP2040) MCU Definitions
 
+![bit(N) RP2040 Logo](../../assets/bitN_RP2040.png)
+
 > Comprehensive peripheral definitions for the RP2040 microcontroller in bit(N) DSL
 
 ---

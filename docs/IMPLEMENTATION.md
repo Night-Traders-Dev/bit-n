@@ -1,25 +1,26 @@
 # bit(N) Compiler - Implementation Details
 
-## Current Status: Phase 2 Complete ✅ | Nim-Style Syntax Implemented
+## Current Status: Phase 2 Complete ✅ | Code Generation Active 🚀
 
-**Latest:** Indentation-based lexer and parser complete. Named operators implemented. Symbol table and type inference operational. Production-ready compiler pipeline with Nim-style syntax.
+**Latest:** Device definition parsing complete. C header code generation operational. Full compilation pipeline from `.bitn` device files to `.h` headers with register structures and bit field accessors.
 
 ---
 
 ## Compiler Architecture
 
 ```
-Source Code (.bitn)
+Source Code (.bitn) - Device Definitions
     ↓
-PHASE 1: Lexical Analysis (✅ Complete - Indentation Tracking)
+PHASE 1: Lexical Analysis (✅ Complete)
     ├─ Tokenization with indentation
-    ├─ Keyword recognition (proc, func, var)
+    ├─ Keyword recognition (peripheral, register, field)
     ├─ INDENT/DEDENT token generation
     └─ Position tracking
     ↓ Tokens
-PHASE 1: Syntax Analysis (✅ Complete - Nim-Style)
+PHASE 1: Syntax Analysis (✅ Complete)
     ├─ Recursive descent parsing
-    ├─ Indentation-based block parsing
+    ├─ Device definition parsing
+    ├─ Register and field parsing
     ├─ AST construction
     └─ Error recovery
     ↓ Abstract Syntax Tree
@@ -29,580 +30,398 @@ PHASE 2: Semantic Analysis (✅ Complete)
     ├─ Scope tracking (✅ Done)
     └─ Error detection (✅ Done)
     ↓ Validated AST
-PHASE 2: Type Checking (✅ Complete)
-    └─ Return type validation
-    ↓ Verified AST
-PHASE 3+: Code Generation (📅 Planned)
-    ├─ LLVM IR generation
-    └─ Machine code output
+PHASE 3: Code Generation (✅ Operational)
+    ├─ C header generation (✅ Done)
+    ├─ Register struct creation
+    ├─ Bit field macro generation
+    ├─ Inline accessor functions
+    └─ Device memory mapping
+    ↓ Generated C Headers (.h)
 ```
 
 ---
 
-## Component Breakdown
+## Device Definition Support
 
-### 1. Lexer (`src/lexer.c`, `include/lexer.h`) - UPDATED
+### Peripheral Definitions
 
-**Purpose:** Converts source code characters into tokens with indentation awareness
-
-**Key Features (Updated for Nim-style):**
-- ✅ Indentation Tracking - Generates INDENT/DEDENT tokens
-- ✅ Keyword Recognition - proc, func, var, let, return, if, while
-- ✅ Number Parsing - Supports decimal, hex (0x...), binary (0b...)
-- ✅ Operator Tokenization - All operators recognized
-- ✅ Line/Column Tracking - Records position of each token
-
-**Indentation Features:**
-```c
-struct {
-    int *indent_stack;      // Stack of indentation levels
-    int indent_depth;       // Current depth in stack
-    int pending_dedents;    // Queued DEDENT tokens
-    int indent_size;        // Indentation unit (spaces)
-    int at_line_start;      // Flag for line start
+```bitn
+peripheral UART {
+    base_address: 0x40000000
+    
+    register CONTROL {
+        type: u32
+        offset: 0x0
+        
+        field ENABLE {
+            start_bit: 0
+            end_bit: 1
+            access: rw
+        }
+    }
 }
 ```
 
-**Supported Keywords (Nim-Style):**
-- `proc`, `func` - Function definitions
-- `let`, `var` - Variable declarations
-- `return`, `if`, `while` - Control flow
-- Type keywords: `u8`, `u16`, `u32`, `u64`, `i8`, `i16`, `i32`, `i64`, `void`
+**Parsed Elements:**
+- `peripheral` keyword - Device definition start
+- `base_address` - Memory-mapped address
+- `register` - Register within peripheral
+- `type` - Register bit width (u8, u16, u32, u64)
+- `offset` - Register offset from base address
+- `field` - Bit field within register
+- `access` - Access type (ro, wo, rw, w1c)
 
-**Operator Coverage:**
-- Named arithmetic: `add`, `sub`, `mul`, `div`, `mod`, `neg`
-- Named bitwise: `bitand`, `bitor`, `bitxor`, `shl`, `shr`, `bitnot`
-- Named comparison: `eq`, `ne`, `lt`, `gt`, `le`, `ge`
-- Delimiters: `(`, `)`, `[`, `]`, `:`, `->`, `=`
+### Semantic Analysis for Devices
 
-**Token Structure:**
+The semantic analyzer validates:
+- Register offsets don't overlap
+- Fields fit within register width
+- Bit ranges are valid (start_bit < end_bit)
+- Access types are recognized
+- Base addresses are valid
+
+---
+
+## Code Generation Pipeline
+
+### Input Processing
+
 ```c
+// File: device.bitn
+peripheral GPIO {
+    base_address: 0x50000000
+    register DIR {
+        type: u32
+        offset: 0x0
+        field OUTPUT { start_bit: 0, end_bit: 32, access: rw }
+    }
+}
+```
+
+### Generated Output
+
+```c
+// File: device.h
+#define GPIO ((volatile GPIO_t *)0x50000000)
+
 typedef struct {
-    TokenType type;      // Token classification
-    const char *value;   // Token text
-    int line;            // Line number (1-indexed)
-    int column;          // Column number (0-indexed)
-    int length;          // Token length
-} Token;
+    uint32_t DIR;  // @ offset 0x0
+} GPIO_t;
+
+// Bit field macros
+#define DIR_OUTPUT_GET(reg)      (((reg) >> 0) & 0xffffffff)
+#define DIR_OUTPUT_SET(reg, val) (((reg) & ~(0xffffffff << 0)) | ((val & 0xffffffff) << 0))
+
+// Inline accessors
+static inline uint32_t DIR_OUTPUT_read(uint32_t reg) {
+    return (reg >> 0) & 0xffffffff;
+}
+
+static inline uint32_t DIR_OUTPUT_write(uint32_t reg, uint32_t val) {
+    return (reg & ~(0xffffffff << 0)) | ((val & 0xffffffff) << 0);
+}
 ```
+
+### Generation Features
+
+✅ **Register Structures**
+- Memory-mapped pointers with volatile
+- Correct register layout
+- Offset tracking
+
+✅ **Bit Field Macros**
+- GET macros for reading bits
+- SET macros for modifying bits
+- Correct mask generation
+- Bit shift calculation
+
+✅ **Inline Functions**
+- Read accessors (safe extraction)
+- Write accessors (safe modification)
+- No memory overhead
+- Inlined by compiler
+
+✅ **Smart Filenames**
+- Input: `uart.bitn` → Output: `uart.h`
+- Input: `gpio_device.bitn` → Output: `gpio_device.h`
+- Automatic extension replacement
 
 ---
 
-### 2. Parser (`src/parser.c`, `include/parser.h`) - UPDATED
+## Main Entry Point
 
-**Purpose:** Builds an Abstract Syntax Tree from tokens with indentation-based blocks
+The updated `main.c` provides:
 
-**Key Features (Updated for Nim-Style):**
-- ✅ Recursive Descent - Top-down parsing with precedence
-- ✅ Indentation-Based Blocks - No braces required
-- ✅ Error Recovery - Continues after errors
-- ✅ Expression Precedence - Correct precedence (function calls)
-- ✅ proc/func Support - Both procedure and functional styles
-
-**Function Parsing (Nim-Style):**
 ```c
-// Old Rust-style:
-// fn add(x: u32, y: u32) -> u32 { ... }
-
-// New Nim-style:
-// proc add(x: u32, y: u32): u32 =
-//   ...
+int main(int argc, char *argv[])
 ```
 
-**Operator Precedence (Function Calls):**
-1. Primary (literals, identifiers, parentheses)
-2. Unary (function calls, negation)
-3. Binary operations (function calls with 2 args)
+**Arguments Supported:**
+- `bitN device.bitn` - Parse and display
+- `bitN --compile device.bitn` - Generate C headers
+- `bitN --compile device.bitn --verbose` - With detailed output
+- `bitN -c 'code'` - Inline device code
 
-**Parsing Strategy:**
+**Compilation Phases:**
+
 ```
-parseProgram()
-  └─ repeat parseFunction()
-      ├─ Match PROC or FUNC keyword
-      ├─ Parse signature: name(params): returntype
-      ├─ Match = operator
-      └─ repeat parseStatement() with indentation tracking
-          ├─ parseVarDecl() - let/var keyword
-          ├─ parseReturn()  - return statement
-          ├─ parseExprStmt()- expression as statement
-          └─ parseExpression() - all named operations
+1. ARGUMENT PARSING
+   ├─ Detect --compile flag
+   ├─ Detect --verbose flag
+   └─ Locate input file
+
+2. FILE LOADING
+   ├─ Read .bitn file
+   ├─ Allocate memory
+   └─ Validate file contents
+
+3. LEXICAL ANALYSIS
+   ├─ Tokenize with indentation
+   ├─ Optional verbose output (--verbose)
+   └─ Generate tokens
+
+4. PARSING
+   ├─ Build AST from tokens
+   ├─ Validate structure
+   └─ Detect syntax errors
+
+5. STRUCTURE DISPLAY
+   ├─ Show functions
+   ├─ Show peripherals with addresses
+   ├─ Show registers with offsets
+   └─ Show fields with bit ranges
+
+6. CODE GENERATION (if --compile)
+   ├─ Check for peripherals
+   ├─ Initialize code generator
+   ├─ Generate C headers
+   ├─ Write output file
+   └─ Report success/failure
+
+7. CLEANUP
+   ├─ Free AST
+   ├─ Free parser
+   ├─ Free lexer
+   └─ Free allocated memory
 ```
-
-**Supported Statement Types:**
-- Variable declarations: `let name: type = value` / `var name: type = value`
-- Return statements: `return value`
-- Expression statements: `expr`
-- Indented blocks: Auto-handled by INDENT/DEDENT
-- If statements: `if condition:` (indented body)
-- While loops: `while condition:` (indented body)
-
-**Named Operations (Parser):**
-All binary operations recognized as function calls:
-- Arithmetic: `add(x, y)`, `sub(x, y)`, `mul(x, y)`, `div(x, y)`, `mod(x, y)`
-- Bitwise: `bitand(x, y)`, `bitor(x, y)`, `bitxor(x, y)`, `shl(x, n)`, `shr(x, n)`
-- Comparison: `eq(x, y)`, `ne(x, y)`, `lt(x, y)`, `gt(x, y)`, `le(x, y)`, `ge(x, y)`
 
 ---
 
-### 3. Type System (`src/type_system.c`, `include/type_system.h`)
+## Backend Integration
 
-**Purpose:** Type definitions, operations, and validation
+### Code Generator Interface
 
-**Supported Types:**
-- Unsigned integers: `u8`, `u16`, `u32`, `u64`
-- Signed integers: `i8`, `i16`, `i32`, `i64`
-- Special: `void`
-
-**Type Operations:**
 ```c
-Type *type_clone(Type *t);              // Copy a type
-int type_equal(Type *a, Type *b);       // Compare types
-int type_compatible(Type *target, Type *source);  // Compatibility
-int type_is_numeric(Type *t);           // Check if numeric
-int type_is_integer(Type *t);           // Check if integer
-int type_is_void(Type *t);              // Check if void
-const char *type_to_string(Type *t);    // Convert to string
-uint64_t type_get_size(TypeKind k);     // Get size in bytes
+// Initialize code generation context
+CodegenContext *ctx = codegen_init(output_file, "arm-cortex-m0");
+
+// Generate C code from AST
+int result = codegen_generate(ctx, program);
+
+// Cleanup
+codegen_cleanup(ctx);
 ```
 
-**Type Sizes:**
-```
-Type        Size Range
-------      ---- -----
-u8          1    0 - 255
-u16         2    0 - 65,535
-u32         4    0 - 4.3B
-u64         8    0 - 18.4E
-i8-i64      1-8  Signed equivalents
-```
+### File Generation
 
----
+The codegen backend:
+- ✅ Opens output file for writing
+- ✅ Generates includes and guards
+- ✅ Creates struct definitions
+- ✅ Generates accessor macros
+- ✅ Generates inline functions
+- ✅ Closes file properly
+- ✅ Returns status code
 
-### 4. AST (`src/ast.c`, `include/ast.h`)
+### Error Handling
 
-**Purpose:** Abstract Syntax Tree nodes and management
-
-**Core Node Types:**
-
-**Expressions (ASTExpr):**
-- Numbers: `42`, `0xFF`, `0b1010`
-- Identifiers: `x`, `foo`
-- Function calls: `add(x, y)`, `bitand(a, b)`, `shr(val, 4)`
-- Unary operations: `neg(x)`, `bitnot(val)`
-- Bit slices: `x[8:16]` (Phase 3)
-- Future: array access
-
-**Statements (ASTStmt):**
-- Variable declarations: `let x: u32 = 10` / `var x: u32 = 10`
-- Return statements: `return x`
-- Expression statements: `x`
-- Block statements: Indentation-managed
-- If statements: `if condition:`
-- While loops: `while condition:`
-
-**Functions (ASTFunctionDef):**
-- Name, return type, parameters, body
-- Type annotations required
-- Both proc and func supported
-
-**Program (ASTProgram):**
-- Collection of functions
-
-**Memory Management:**
-All nodes allocated with `malloc`, recursive freeing implemented.
-
----
-
-### 5. Token System (`src/token.c`, `include/token.h`)
-
-**Purpose:** Token types and utilities
-
-**Token Types (Updated):**
-- Keywords: `TOK_PROC`, `TOK_FUNC`, `TOK_VAR`, `TOK_LET`, `TOK_RETURN`, etc.
-- Indentation: `TOK_INDENT`, `TOK_DEDENT` (NEW)
-- Operators: Recognized but parsed as function names
-- Delimiters: Parentheses, brackets, colon
-- Literals: Numbers, identifiers
-
-**60+ Token Types** covering all language constructs
-
-**Token Printing:**
 ```c
-void token_print(Token tok);  // Display token info
-```
+if (!ctx) {
+    fprintf(stderr, "Error: Failed to initialize code generator\n");
+    return 1;
+}
 
----
+if (codegen_generate(ctx, program) != 0) {
+    fprintf(stderr, "❌ Code generation failed\n");
+    codegen_cleanup(ctx);
+    return 1;
+}
 
-### 6. Symbol Table (`src/symbol_table.c`, `include/symbol_table.h`)
-
-**Purpose:** Track variable declarations and scopes
-
-**Key Operations:**
-```c
-SymbolTable *symbol_table_create();           // Initialize
-void symbol_table_free(SymbolTable *st);      // Cleanup
-void symbol_table_push_scope(SymbolTable *st); // Enter block
-void symbol_table_pop_scope(SymbolTable *st);  // Exit block
-int symbol_table_add_symbol(SymbolTable *st, const char *name, 
-                            Type *type, int is_mut);  // Register variable
-Symbol *symbol_table_lookup(SymbolTable *st, const char *name);  // Find variable
-```
-
-**Symbol Structure:**
-```c
-typedef struct {
-    const char *name;      // Variable name
-    Type *type;            // Variable type
-    int is_mutable;        // Mutability flag (var vs let)
-} Symbol;
-```
-
-**Scope Chain:**
-- Push scope entering indented block
-- Pop scope exiting block (on DEDENT)
-- Lookup searches scope chain from current to global
-
----
-
-### 7. Type Inference (`src/type_inference.c`, `include/type_inference.h`)
-
-**Purpose:** Determine expression types and validate compatibility
-
-**Key Functions:**
-```c
-TypeContext *type_context_create();        // Initialize context
-void type_context_free(TypeContext *ctx);  // Cleanup
-void type_context_set_function(TypeContext *ctx, const char *name, Type *return_type);
-Type *infer_expr_type(TypeContext *ctx, ASTExpr *expr);  // Determine type
-int check_stmt_types(TypeContext *ctx, ASTStmt *stmt);   // Validate statement
-int check_function_types(TypeContext *ctx, ASTFunctionDef *func);  // Validate function
-int check_program_types(TypeContext *ctx, ASTProgram *prog);  // Validate program
-```
-
-**Type Inference Rules:**
-- Numbers default to `u32`
-- Identifiers look up type in symbol table
-- Function calls return declared return type
-- Binary operations: both operands must be compatible
-- Return statements must match function signature
-
-**Error Detection:**
-- ✅ Undefined variables
-- ✅ Type mismatches in operations
-- ✅ Return type mismatches
-- ✅ Variable redefinitions in scopes
-- ✅ Undefined function calls
-
----
-
-## Compilation Pipeline
-
-### Phase 1a: Lexical Analysis
-
-```
-Input: "proc main(): u32 =\n  return 42"
-    ↓
-Lexer with Indentation Tracking
-    ├─ Recognizes proc keyword
-    ├─ Parses identifier and signature
-    ├─ Generates INDENT token at line 2
-    ├─ Parses return statement
-    └─ Generates DEDENT token at end
-    ↓
-Output: [TOKPROC, TOKIDENTIFIER("main"), TOKLPAREN, TOKRPAREN, 
-         TOKCOLON, TOKU32, TOKEQUAL, TOKINDENT, TOKRETURN, 
-         TOKNUMBER(42), TOKDEDENT]
-```
-
-### Phase 1b: Syntax Analysis
-
-```
-Input: Token stream with indentation
-    ↓
-Parser (Indentation-Aware)
-    ├─ Match PROC keyword
-    ├─ Parse function signature
-    ├─ Match = operator
-    ├─ Parse indented block
-    └─ Recognize named operations in expressions
-    ↓
-Output: AST with FunctionDef
-    - proc main(): u32
-    - Body: [ReturnStmt with value 42]
-```
-
-### Phase 2a: Semantic Analysis
-
-```
-Input: AST
-    ↓
-Symbol Table
-    ├─ Track function definitions
-    ├─ Track variable declarations
-    ├─ Manage scopes (INDENT/DEDENT)
-    └─ Lookup variables/functions
-    ↓
-Type Inference
-    ├─ Infer expression types
-    ├─ Check type compatibility
-    └─ Validate return types
-    ↓
-Output: Validated AST + Error Report
-```
-
-### Phase 2b: Type Checking
-
-```
-Input: Validated AST
-    ↓
-Type Checker
-    ├─ Validate function return types
-    ├─ Check variable types
-    └─ Verify named operation compatibility
-    ↓
-Output: Verified AST or Errors
-```
-
----
-
-## Build System
-
-### CMakeLists.txt Configuration
-
-```cmake
-cmake_minimum_required(VERSION 3.10)
-project(bitN C)
-
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O2")
-
-add_executable(bitN
-    src/main.c
-    src/token.c
-    src/lexer.c
-    src/parser.c
-    src/ast.c
-    src/type_system.c
-    src/symbol_table.c
-    src/type_inference.c
-)
-
-target_include_directories(bitN PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-```
-
-### Build Process
-
-```bash
-cd ~/bit-n
-bash bitN_setup.sh
-```
-
-**Result:** `build/bitN` executable with full Nim-style compilation pipeline
-
----
-
-## Memory Management
-
-### Allocation Strategy
-- **Stack-based:** Lexer/parser state
-- **Heap-based:** All tokens, AST nodes, type objects, symbol table
-
-### Cleanup Order
-```
-1. ast_free_program(&program)     // Frees all AST nodes
-2. symbol_table_free(symbol_table) // Frees symbol table
-3. parser_free(parser)             // Frees parser state
-4. lexer_free(lexer)               // Frees lexer state
-```
-
-### Status
-✅ No memory leaks (validated with valgrind)
-
----
-
-## Performance Characteristics
-
-### Time Complexity
-- Lexer: O(n) - Single pass with indentation
-- Parser: O(n) - Single pass through tokens
-- Type checker: O(n) - Single pass through AST
-- **Total: O(n) Linear time**
-
-### Space Complexity
-- Tokens: O(n) - One per source token
-- AST Nodes: O(n) - One per expression/statement
-- Indentation Stack: O(d) where d = nesting depth
-- **Total: O(n) Linear space**
-
-### Benchmarks (Typical 1KB Program)
-- Lexing: 5ms
-- Parsing: 3ms
-- Type checking: 1ms
-- **Total: 9ms**
-- **Memory: 1MB**
-
----
-
-## Error Handling
-
-### Error Types
-1. **Lexical Errors** - Invalid characters, malformed numbers
-2. **Syntax Errors** - Unexpected tokens, indentation issues
-3. **Semantic Errors** - Type mismatches, undefined variables
-
-### Error Recovery
-- Parser continues after errors
-- Synchronizes at block boundaries (DEDENT)
-- Reports multiple errors per compile
-
-### Error Reporting
-- Line and column numbers included
-- Token information displayed
-- Context shown
-
----
-
-## Testing
-
-### Test Suite
-```bash
-bash ~/bit-n/bitN_setup.sh
-```
-
-### Example Tests
-```bash
-# Simple function (Nim-style)
-./build/bitN -c 'proc test(): u32 = return 42'
-
-# Bit operations (Named operators)
-./build/bitN -c 'proc bits(): u32 = return bitand(0xFF00, 0x00FF)'
-
-# File-based
-./build/bitN examples/extract_bits.bitn
+printf("✅ Successfully generated C code\n");
 ```
 
 ---
 
 ## File Statistics
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| token.h | 50 | Token definitions |
-| token.c | 100 | Token utilities |
-| lexer.h | 30 | Lexer interface |
-| lexer.c | 400 | Lexer + indentation |
-| ast.h | 100 | AST definitions |
-| ast.c | 250 | AST utilities |
-| parser.h | 30 | Parser interface |
-| parser.c | 500 | Parser + Nim-style |
-| type_system.h | 30 | Type system API |
-| type_system.c | 170 | Type implementation |
-| symbol_table.h | 40 | Symbol table API |
-| symbol_table.c | 200 | Symbol management |
-| type_inference.h | 40 | Type inference API |
-| type_inference.c | 350 | Type checking |
-| main.c | 150 | Entry point |
-| **Total** | **~2,400** | **Complete compiler** |
+| Component | Status | Lines |
+|-----------|--------|-------|
+| main.c | ✅ Complete | 229 |
+| lexer.c | ✅ Complete | 400 |
+| parser.c | ✅ Complete | 500+ |
+| ast.c | ✅ Complete | 250 |
+| type_system.c | ✅ Complete | 170 |
+| symbol_table.c | ✅ Complete | 200 |
+| type_inference.c | ✅ Complete | 350 |
+| codegen.c | ✅ Complete | 200+ |
+| **Total** | **✅** | **~2,400** |
 
 ---
 
-## Current Implementation Status
+## Device Definition Grammar
 
-### ✅ Completed
-- Lexer with indentation tracking (INDENT/DEDENT tokens)
-- Parser with indentation-based blocks
-- Support for proc/func keywords
-- Support for var/let keywords
-- Named operators (add, sub, mul, bitand, etc.)
-- AST construction
-- Type system with all integer types
-- Symbol table with scope tracking
-- Type inference framework
-- Error reporting
+```
+Program
+  └─ Function* | Peripheral*
 
-### 🔧 Latest Changes (Nim-Style Syntax)
-- Indentation-based lexer (no more braces)
-- proc/func function definitions
-- Named operator support throughout
-- Colon-based type annotations (`: type` instead of `-> type`)
-- Equals for function body (`: type =` instead of `-> type {`)
+Peripheral
+  ├─ "peripheral" IDENTIFIER
+  ├─ "base_address" ":" HEX_NUMBER
+  └─ Register*
 
-### 📅 Planned (Phase 3+)
-- Code generation (LLVM/C backend)
-- Bitfield support
-- Struct definitions
-- Array support
-- Pointer support
-- Optimization passes
+Register
+  ├─ "register" IDENTIFIER
+  ├─ "type" ":" TYPE
+  ├─ "offset" ":" HEX_NUMBER
+  └─ Field*
 
----
+Field
+  ├─ "field" IDENTIFIER
+  ├─ "start_bit" ":" NUMBER
+  ├─ "end_bit" ":" NUMBER
+  └─ "access" ":" ACCESS_TYPE
 
-## Development Guide
-
-### Adding a New Named Operator
-
-1. Add to lexer keyword list (lexer.c)
-2. Create parse handling in parser (parser.c)
-3. Handle in type inference (type_inference.c)
-
-### Adding a New Statement Type
-
-1. Add `StmtKind` variant (`ast.h`)
-2. Add union member to `ASTStmt` (`ast.h`)
-3. Create `ast_stmt_X_create()` function (`ast.c`)
-4. Add parsing logic in `parser_parse_statement()` (`parser.c`)
-5. Add freeing logic in `ast_free_stmt()` (`ast.c`)
-6. Add type checking in `check_stmt_types()` (`type_inference.c`)
-
-### Debugging
-
-Enable debug output in `parser.c`:
-```c
-printf("Parsing %s at line %d\\n", token_name, current_line);
+TYPE: u8 | u16 | u32 | u64
+ACCESS_TYPE: ro | wo | rw | w1c
 ```
 
-Use valgrind for memory leaks:
+---
+
+## Usage Examples
+
+### Parse Device Definition
+
 ```bash
-valgrind --leak-check=full ./build/bitN -c 'proc test(): u32 = return 42'
+./build/bitN uart.bitn
+```
+
+**Output:**
+```
+✅ Successfully parsed
+ Peripherals: 1
+ - peripheral UART @ 0x40000000
+ * register CONTROL: u32 @ offset 0x00
+ - field ENABLE: [0:1] rw
+ - field BAUDRATE: [1:16] rw
+ * register STATUS: u32 @ offset 0x04
+ - field TX_READY: [0:1] ro
+```
+
+### Generate C Headers
+
+```bash
+./build/bitN --compile uart.bitn
+cat uart.h
+```
+
+**Output:**
+```c
+#define UART ((volatile UART_t *)0x40000000)
+
+typedef struct {
+    uint32_t CONTROL;  // @ offset 0x0
+    uint32_t STATUS;   // @ offset 0x4
+} UART_t;
+
+#define CONTROL_ENABLE_GET(reg)      (((reg) >> 0) & 0x1)
+#define CONTROL_ENABLE_SET(reg, val) (((reg) & ~(0x1 << 0)) | ((val & 0x1) << 0))
+```
+
+### Verbose Generation
+
+```bash
+./build/bitN --compile uart.bitn --verbose
+```
+
+Shows tokens, parsing details, and generation progress.
+
+---
+
+## Integration with Projects
+
+Generated headers can be used directly:
+
+```c
+#include "uart.h"
+
+int main() {
+    // Get UART peripheral
+    volatile UART_t *uart = UART;
+    
+    // Read status
+    uint32_t status = uart->STATUS;
+    
+    // Check if TX ready
+    if (STATUS_TX_READY_GET(status)) {
+        // Send data
+        uart->CONTROL = CONTROL_ENABLE_SET(uart->CONTROL, 1);
+    }
+    
+    return 0;
+}
 ```
 
 ---
 
-## Next Steps
+## Features
 
-### Immediate (This Week)
-- ✅ Indentation-based syntax complete
-- ✅ Named operators integrated
-- ✅ Full type checking operational
-- Finalize documentation
+✅ **Complete Device Parsing**
+- Peripheral definitions with memory addresses
+- Register definitions with types and offsets
+- Field definitions with bit ranges
+- Access type specification
 
-### Short-term (Phase 2 Complete)
-- Comprehensive error messages
-- Edge case handling
-- Performance optimization
+✅ **Robust Generation**
+- Correct struct layouts
+- Proper bit field macros
+- Safe inline accessors
+- Memory-mapped pointers
 
-### Medium-term (Phase 3)
-- Code generation to LLVM IR
-- Portable C backend
-- Basic optimization passes
-- Bitfield support
+✅ **Error Handling**
+- Clear error messages
+- Line/column reporting
+- Graceful failure
 
-### Long-term (Phase 4+)
-- Function calls within code
-- Struct definitions
-- Array and pointer support
-- Advanced optimizations
-- Unsafe code blocks
-- Assembly support
+✅ **Command-line Options**
+- `--compile` for C generation
+- `--verbose` for detailed output
+- Automatic filename generation
+- File input support
 
 ---
 
-## Conclusion
+## Implementation Status
 
-The bit(N) compiler now features a **complete Nim-style syntax design** with indentation-based blocks, named operators, and semantic analysis. The compiler pipeline is production-ready for Phase 3 advancement.
+### Complete ✅
+- Device definition parsing
+- Code generation backend
+- C header output
+- Struct generation
+- Bit field macros
+- Inline accessors
+- Error handling
+- Main entry point
 
-**Status:** Production-ready for Phase 3 expansion
+### Next Steps 📅
+- Advanced bitfield types
+- Additional access patterns
+- Code optimization
+- Additional platform support
 
-**For language features**, see `README.md`
-**For roadmap**, see `ROADMAP.md`
-**For vision**, see `VISION.md`
+---
+
+## For More Information
+
+- **Language Features:** See `README.md`
+- **Development Roadmap:** See `ROADMAP.md`
+- **Strategic Vision:** See `VISION.md`
