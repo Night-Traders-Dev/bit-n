@@ -1,6 +1,6 @@
 # bit(N) Compiler - Device Definition & Code Generation Guide
 
-![bit(N) Logo](assets/bit(N).jpg)
+![bit(N) Logo](assets/bitN.jpg)
 
 ## Status: Device DSL Complete 🚀 | C Code Generation Operational ✅
 
