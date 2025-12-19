@@ -46,11 +46,10 @@ set(SOURCES
     src/type_system.c
     src/type_inference.c
     src/symbol_table.c
-    
+
     # Backend modules
     backend/codegen/codegen.c
     backend/linker/linker_gen.c
-    backend/build/build.c
 )
 
 # ============================================================================
