@@ -1,0 +1,239 @@
+// Raspberry Pi Pico (RP2040) PIO Peripheral Definition
+// 
+// Memory Map:
+//   PIO0 Base: 0x50200000
+//   PIO1 Base: 0x50300000
+//   Size: 4KB each
+//
+// Description:
+//   Programmable I/O (PIO) with 4 state machines per instance.
+//   Supports flexible serial I/O protocols.
+
+peripheral PIO0 @ 0x50200000 {
+    // PIO Control Register
+    register CTRL: u32 @ 0x00 {
+        field SM_ENABLE: [3:0]   rw;  // Enable state machines 0-3
+        field SM_RESTART: [7:4]  rw;  // Restart state machines
+        field CLKDIV_RESTART: [11:8] rw; // Restart clock dividers
+        field RESERVED: [31:12] rw;
+    }
+    
+    // FIFO Status Register
+    register FSTAT: u32 @ 0x04 {
+        field RX_EMPTY0: [0:0]  ro;   // RX FIFO empty SM0
+        field RX_EMPTY1: [1:1]  ro;   // RX FIFO empty SM1
+        field RX_EMPTY2: [2:2]  ro;   // RX FIFO empty SM2
+        field RX_EMPTY3: [3:3]  ro;   // RX FIFO empty SM3
+        field TX_FULL0: [16:16] ro;   // TX FIFO full SM0
+        field TX_FULL1: [17:17] ro;   // TX FIFO full SM1
+        field TX_FULL2: [18:18] ro;   // TX FIFO full SM2
+        field TX_FULL3: [19:19] ro;   // TX FIFO full SM3
+        field RESERVED: [31:20] rw;
+    }
+    
+    // Debug Register
+    register DBG: u32 @ 0x08 {
+        field CFGLOCK: [0:0] ro;   // Config locked
+        field INSTR0: [23:8] ro;   // Current instruction SM0
+        field SM0: [1:1]    ro;    // SM0 debug
+        field RESERVED: [31:24] rw;
+    }
+    
+    // Interrupt Raw Status
+    register INTR: u32 @ 0x0C {
+        field SM0_RXNEMPTY: [0:0] ro;  // SM0 RX not empty
+        field SM1_RXNEMPTY: [1:1] ro;
+        field SM2_RXNEMPTY: [2:2] ro;
+        field SM3_RXNEMPTY: [3:3] ro;
+        field SM0_TXNFULL: [4:4]  ro;  // SM0 TX not full
+        field SM1_TXNFULL: [5:5]  ro;
+        field SM2_TXNFULL: [6:6]  ro;
+        field SM3_TXNFULL: [7:7]  ro;
+        field RESERVED: [31:8] rw;
+    }
+    
+    // Interrupt Enable Register
+    register IRQ0_INTE: u32 @ 0x10 {
+        field SM0_RXNEMPTY: [0:0] rw;
+        field SM1_RXNEMPTY: [1:1] rw;
+        field SM2_RXNEMPTY: [2:2] rw;
+        field SM3_RXNEMPTY: [3:3] rw;
+        field SM0_TXNFULL: [4:4]  rw;
+        field SM1_TXNFULL: [5:5]  rw;
+        field SM2_TXNFULL: [6:6]  rw;
+        field SM3_TXNFULL: [7:7]  rw;
+        field RESERVED: [31:8] rw;
+    }
+    
+    // Interrupt Force Register
+    register IRQ0_INTF: u32 @ 0x14 {
+        field SM0_RXNEMPTY: [0:0] rw;
+        field SM1_RXNEMPTY: [1:1] rw;
+        field SM2_RXNEMPTY: [2:2] rw;
+        field SM3_RXNEMPTY: [3:3] rw;
+        field SM0_TXNFULL: [4:4]  rw;
+        field SM1_TXNFULL: [5:5]  rw;
+        field SM2_TXNFULL: [6:6]  rw;
+        field SM3_TXNFULL: [7:7]  rw;
+        field RESERVED: [31:8] rw;
+    }
+    
+    // Interrupt Status Register
+    register IRQ0_INTS: u32 @ 0x18 {
+        field SM0_RXNEMPTY: [0:0] ro;
+        field SM1_RXNEMPTY: [1:1] ro;
+        field SM2_RXNEMPTY: [2:2] ro;
+        field SM3_RXNEMPTY: [3:3] ro;
+        field SM0_TXNFULL: [4:4]  ro;
+        field SM1_TXNFULL: [5:5]  ro;
+        field SM2_TXNFULL: [6:6]  ro;
+        field SM3_TXNFULL: [7:7]  ro;
+        field RESERVED: [31:8] rw;
+    }
+    
+    // State Machine 0 Control
+    register SM0_CLKDIV: u32 @ 0xC8 {
+        field FRAC: [7:0]   rw;   // Fractional clock divisor
+        field INT: [19:8]   rw;   // Integer clock divisor
+        field RESERVED: [31:20] rw;
+    }
+    
+    register SM0_EXECCTRL: u32 @ 0xCC {
+        field STATUS_N: [3:0] rw; // Status check (n)
+        field STATUS_SEL: [4:4] rw; // Status select
+        field WRAP_BOTTOM: [11:7] rw; // Wrap address bottom
+        field WRAP_TOP: [17:12] rw;   // Wrap address top
+        field OUT_STICKY: [18:18] rw; // Output sticky
+        field INLINE_OUT_EN: [19:19] rw; // Inline OUT enable
+        field OUT_EN_SEL: [24:20] rw;    // OUT enable select
+        field JMP_PIN: [29:25] rw;      // Jump pin
+        field SIDE_PINDIR: [30:30] rw;  // Side pin direction
+        field SIDE_SET_DISABLE: [31:31] rw; // Side set disable
+    }
+    
+    register SM0_SHIFTCTRL: u32 @ 0xD0 {
+        field SHIFT_DIRECTION: [0:0] rw; // Shift direction
+        field PUSH_THRESH: [5:1] rw;     // Push threshold
+        field PULL_THRESH: [10:6] rw;    // Pull threshold
+        field OUT_SHIFTDIR: [18:18] rw;  // OUT shift direction
+        field IN_SHIFTDIR: [19:19] rw;   // IN shift direction
+        field AUTOPUSH: [20:20] rw;      // Auto push enable
+        field AUTOPULL: [21:21] rw;      // Auto pull enable
+        field IN_BASE: [26:22] rw;       // IN base pin
+        field OUT_BASE: [31:27] rw;      // OUT base pin
+    }
+    
+    register SM0_ADDR: u32 @ 0xD4 {
+        field PC: [4:0]     ro;   // Program counter
+        field RESERVED: [31:5] rw;
+    }
+    
+    register SM0_INSTR: u32 @ 0xD8 {
+        field INSTR: [15:0] rw;   // Instruction
+        field RESERVED: [31:16] rw;
+    }
+    
+    register SM0_PINCTRL: u32 @ 0xDC {
+        field OUT_BASE: [4:0] rw; // OUT base pin
+        field OUT_COUNT: [9:5] rw; // OUT pin count
+        field SET_BASE: [14:10] rw; // SET base pin
+        field SET_COUNT: [19:15] rw; // SET pin count
+        field SIDE_SET_BASE: [24:20] rw; // Side set base pin
+        field SIDE_SET_COUNT: [29:25] rw; // Side set pin count
+        field MDO_PINDIR: [30:30] rw;     // MDO pin direction
+        field RESERVED: [31:31] rw;
+    }
+    
+    // State Machine 1-3 (similar to SM0)
+    register SM1_CLKDIV: u32 @ 0xD8 {
+        field FRAC: [7:0]   rw;
+        field INT: [19:8]   rw;
+        field RESERVED: [31:20] rw;
+    }
+    
+    register SM2_CLKDIV: u32 @ 0xE8 {
+        field FRAC: [7:0]   rw;
+        field INT: [19:8]   rw;
+        field RESERVED: [31:20] rw;
+    }
+    
+    register SM3_CLKDIV: u32 @ 0xF8 {
+        field FRAC: [7:0]   rw;
+        field INT: [19:8]   rw;
+        field RESERVED: [31:20] rw;
+    }
+    
+    // RX and TX FIFOs
+    register TXF0: u32 @ 0x100 {
+        field FIFO: [31:0]  wo;   // TX FIFO for SM0
+    }
+    
+    register TXF1: u32 @ 0x104 {
+        field FIFO: [31:0]  wo;   // TX FIFO for SM1
+    }
+    
+    register TXF2: u32 @ 0x108 {
+        field FIFO: [31:0]  wo;   // TX FIFO for SM2
+    }
+    
+    register TXF3: u32 @ 0x10C {
+        field FIFO: [31:0]  wo;   // TX FIFO for SM3
+    }
+    
+    register RXF0: u32 @ 0x110 {
+        field FIFO: [31:0]  ro;   // RX FIFO for SM0
+    }
+    
+    register RXF1: u32 @ 0x114 {
+        field FIFO: [31:0]  ro;   // RX FIFO for SM1
+    }
+    
+    register RXF2: u32 @ 0x118 {
+        field FIFO: [31:0]  ro;   // RX FIFO for SM2
+    }
+    
+    register RXF3: u32 @ 0x11C {
+        field FIFO: [31:0]  ro;   // RX FIFO for SM3
+    }
+}
+
+// PIO1 is identical to PIO0 but at different base address
+peripheral PIO1 @ 0x50300000 {
+    register CTRL: u32 @ 0x00 {
+        field SM_ENABLE: [3:0]   rw;
+        field SM_RESTART: [7:4]  rw;
+        field CLKDIV_RESTART: [11:8] rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register FSTAT: u32 @ 0x04 {
+        field RX_EMPTY0: [0:0]  ro;
+        field RX_EMPTY1: [1:1]  ro;
+        field RX_EMPTY2: [2:2]  ro;
+        field RX_EMPTY3: [3:3]  ro;
+        field TX_FULL0: [16:16] ro;
+        field TX_FULL1: [17:17] ro;
+        field TX_FULL2: [18:18] ro;
+        field TX_FULL3: [19:19] ro;
+        field RESERVED: [31:20] rw;
+    }
+    
+    register DBG: u32 @ 0x08 {
+        field CFGLOCK: [0:0] ro;
+        field INSTR0: [23:8] ro;
+        field SM0: [1:1]    ro;
+        field RESERVED: [31:24] rw;
+    }
+    
+    register INTR: u32 @ 0x0C {
+        field SM0_RXNEMPTY: [0:0] ro;
+        field SM1_RXNEMPTY: [1:1] ro;
+        field SM2_RXNEMPTY: [2:2] ro;
+        field SM3_RXNEMPTY: [3:3] ro;
+        field SM0_TXNFULL: [4:4]  ro;
+        field SM1_TXNFULL: [5:5]  ro;
+        field SM2_TXNFULL: [6:6]  ro;
+        field SM3_TXNFULL: [7:7]  ro;
+        field RESERVED: [31:8] rw;
+    }
+}

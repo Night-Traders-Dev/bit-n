@@ -1,0 +1,304 @@
+// Raspberry Pi Pico (RP2040) PWM Peripheral Definition
+// 
+// Memory Map:
+//   PWM Base: 0x40050000
+//   Size: 4KB
+//
+// Description:
+//   8 PWM slices with 2 channels each (16 PWM outputs total)
+//   Each slice can run independently with different frequencies.
+
+peripheral PWM @ 0x40050000 {
+    // PWM Slice 0
+    register PWM0_CSR: u32 @ 0x00 {
+        field EN: [0:0]     rw;   // Enable this slice
+        field PH_CORRECT: [1:1] rw; // Phase correct mode
+        field DIVMODE: [3:2] rw;   // Clock divider mode
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM0_DIV: u32 @ 0x04 {
+        field FRAC: [3:0]   rw;   // Fractional part of divisor
+        field INT: [11:4]   rw;   // Integer part of divisor
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM0_CTR: u32 @ 0x08 {
+        field COUNTER: [15:0] rw; // Counter value
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM0_CC: u32 @ 0x0C {
+        field A: [15:0]     rw;   // Channel A compare value
+        field B: [31:16]    rw;   // Channel B compare value
+    }
+    
+    register PWM0_TOP: u32 @ 0x10 {
+        field TOP: [15:0]   rw;   // Top/period value
+        field RESERVED: [31:16] rw;
+    }
+    
+    // PWM Slice 1
+    register PWM1_CSR: u32 @ 0x14 {
+        field EN: [0:0]     rw;
+        field PH_CORRECT: [1:1] rw;
+        field DIVMODE: [3:2] rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM1_DIV: u32 @ 0x18 {
+        field FRAC: [3:0]   rw;
+        field INT: [11:4]   rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM1_CTR: u32 @ 0x1C {
+        field COUNTER: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM1_CC: u32 @ 0x20 {
+        field A: [15:0]     rw;
+        field B: [31:16]    rw;
+    }
+    
+    register PWM1_TOP: u32 @ 0x24 {
+        field TOP: [15:0]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    // PWM Slice 2
+    register PWM2_CSR: u32 @ 0x28 {
+        field EN: [0:0]     rw;
+        field PH_CORRECT: [1:1] rw;
+        field DIVMODE: [3:2] rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM2_DIV: u32 @ 0x2C {
+        field FRAC: [3:0]   rw;
+        field INT: [11:4]   rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM2_CTR: u32 @ 0x30 {
+        field COUNTER: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM2_CC: u32 @ 0x34 {
+        field A: [15:0]     rw;
+        field B: [31:16]    rw;
+    }
+    
+    register PWM2_TOP: u32 @ 0x38 {
+        field TOP: [15:0]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    // PWM Slice 3
+    register PWM3_CSR: u32 @ 0x3C {
+        field EN: [0:0]     rw;
+        field PH_CORRECT: [1:1] rw;
+        field DIVMODE: [3:2] rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM3_DIV: u32 @ 0x40 {
+        field FRAC: [3:0]   rw;
+        field INT: [11:4]   rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM3_CTR: u32 @ 0x44 {
+        field COUNTER: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM3_CC: u32 @ 0x48 {
+        field A: [15:0]     rw;
+        field B: [31:16]    rw;
+    }
+    
+    register PWM3_TOP: u32 @ 0x4C {
+        field TOP: [15:0]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    // PWM Slice 4
+    register PWM4_CSR: u32 @ 0x50 {
+        field EN: [0:0]     rw;
+        field PH_CORRECT: [1:1] rw;
+        field DIVMODE: [3:2] rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM4_DIV: u32 @ 0x54 {
+        field FRAC: [3:0]   rw;
+        field INT: [11:4]   rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM4_CTR: u32 @ 0x58 {
+        field COUNTER: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM4_CC: u32 @ 0x5C {
+        field A: [15:0]     rw;
+        field B: [31:16]    rw;
+    }
+    
+    register PWM4_TOP: u32 @ 0x60 {
+        field TOP: [15:0]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    // PWM Slice 5
+    register PWM5_CSR: u32 @ 0x64 {
+        field EN: [0:0]     rw;
+        field PH_CORRECT: [1:1] rw;
+        field DIVMODE: [3:2] rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM5_DIV: u32 @ 0x68 {
+        field FRAC: [3:0]   rw;
+        field INT: [11:4]   rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM5_CTR: u32 @ 0x6C {
+        field COUNTER: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM5_CC: u32 @ 0x70 {
+        field A: [15:0]     rw;
+        field B: [31:16]    rw;
+    }
+    
+    register PWM5_TOP: u32 @ 0x74 {
+        field TOP: [15:0]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    // PWM Slice 6
+    register PWM6_CSR: u32 @ 0x78 {
+        field EN: [0:0]     rw;
+        field PH_CORRECT: [1:1] rw;
+        field DIVMODE: [3:2] rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM6_DIV: u32 @ 0x7C {
+        field FRAC: [3:0]   rw;
+        field INT: [11:4]   rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM6_CTR: u32 @ 0x80 {
+        field COUNTER: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM6_CC: u32 @ 0x84 {
+        field A: [15:0]     rw;
+        field B: [31:16]    rw;
+    }
+    
+    register PWM6_TOP: u32 @ 0x88 {
+        field TOP: [15:0]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    // PWM Slice 7
+    register PWM7_CSR: u32 @ 0x8C {
+        field EN: [0:0]     rw;
+        field PH_CORRECT: [1:1] rw;
+        field DIVMODE: [3:2] rw;
+        field RESERVED: [31:4] rw;
+    }
+    
+    register PWM7_DIV: u32 @ 0x90 {
+        field FRAC: [3:0]   rw;
+        field INT: [11:4]   rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register PWM7_CTR: u32 @ 0x94 {
+        field COUNTER: [15:0] rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register PWM7_CC: u32 @ 0x98 {
+        field A: [15:0]     rw;
+        field B: [31:16]    rw;
+    }
+    
+    register PWM7_TOP: u32 @ 0x9C {
+        field TOP: [15:0]   rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Global Control Registers
+    register CH_EN: u32 @ 0xA0 {
+        field CH0: [0:0]    rw;   // Enable slice 0
+        field CH1: [1:1]    rw;   // Enable slice 1
+        field CH2: [2:2]    rw;   // Enable slice 2
+        field CH3: [3:3]    rw;   // Enable slice 3
+        field CH4: [4:4]    rw;   // Enable slice 4
+        field CH5: [5:5]    rw;   // Enable slice 5
+        field CH6: [6:6]    rw;   // Enable slice 6
+        field CH7: [7:7]    rw;   // Enable slice 7
+        field RESERVED: [31:8] rw;
+    }
+    
+    register INTR: u32 @ 0xA4 {
+        field CH0: [0:0]    ro;   // Slice 0 interrupt
+        field CH1: [1:1]    ro;   // Slice 1 interrupt
+        field CH2: [2:2]    ro;   // Slice 2 interrupt
+        field CH3: [3:3]    ro;   // Slice 3 interrupt
+        field CH4: [4:4]    ro;   // Slice 4 interrupt
+        field CH5: [5:5]    ro;   // Slice 5 interrupt
+        field CH6: [6:6]    ro;   // Slice 6 interrupt
+        field CH7: [7:7]    ro;   // Slice 7 interrupt
+        field RESERVED: [31:8] rw;
+    }
+    
+    register INTE: u32 @ 0xA8 {
+        field CH0: [0:0]    rw;   // Slice 0 interrupt enable
+        field CH1: [1:1]    rw;
+        field CH2: [2:2]    rw;
+        field CH3: [3:3]    rw;
+        field CH4: [4:4]    rw;
+        field CH5: [5:5]    rw;
+        field CH6: [6:6]    rw;
+        field CH7: [7:7]    rw;
+        field RESERVED: [31:8] rw;
+    }
+    
+    register INTF: u32 @ 0xAC {
+        field CH0: [0:0]    rw;   // Slice 0 interrupt force
+        field CH1: [1:1]    rw;
+        field CH2: [2:2]    rw;
+        field CH3: [3:3]    rw;
+        field CH4: [4:4]    rw;
+        field CH5: [5:5]    rw;
+        field CH6: [6:6]    rw;
+        field CH7: [7:7]    rw;
+        field RESERVED: [31:8] rw;
+    }
+    
+    register INTS: u32 @ 0xB0 {
+        field CH0: [0:0]    ro;   // Slice 0 interrupt status
+        field CH1: [1:1]    ro;
+        field CH2: [2:2]    ro;
+        field CH3: [3:3]    ro;
+        field CH4: [4:4]    ro;
+        field CH5: [5:5]    ro;
+        field CH6: [6:6]    ro;
+        field CH7: [7:7]    ro;
+        field RESERVED: [31:8] rw;
+    }
+}

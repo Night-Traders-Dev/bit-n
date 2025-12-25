@@ -1,0 +1,155 @@
+// Raspberry Pi Pico (RP2040) GPIO Peripheral Definition
+// 
+// Memory Map:
+//   Base Address: 0x40014000
+//   Size: 64 bytes
+//   
+// Description:
+//   The GPIO peripheral controls the 26 GPIO pins (plus 3 QSPI pins).
+//   Each GPIO can be configured as input, output, or alternate function.
+//
+// Key Registers:
+//   - GPIO_OE (0x20)    - Output enable
+//   - GPIO_IN (0x24)    - Input value
+//   - GPIO_OUT (0x28)   - Output value
+//   - GPIO_OD (0x2C)    - Open drain enable
+
+peripheral GPIO @ 0x40014000 {
+    // Output Enable Register
+    // Enables GPIO pins as outputs
+    // Set bit=1 to enable output on that GPIO
+    register GPIO_OE: u32 @ 0x20 {
+        field OE_0: [0:0]   rw;   // GPIO 0 output enable
+        field OE_1: [1:1]   rw;   // GPIO 1 output enable
+        field OE_2: [2:2]   rw;   // GPIO 2 output enable
+        field OE_3: [3:3]   rw;   // GPIO 3 output enable
+        field OE_4: [4:4]   rw;   // GPIO 4 output enable
+        field OE_5: [5:5]   rw;   // GPIO 5 output enable
+        field OE_6: [6:6]   rw;   // GPIO 6 output enable
+        field OE_7: [7:7]   rw;   // GPIO 7 output enable
+        field OE_8: [8:8]   rw;   // GPIO 8 output enable
+        field OE_9: [9:9]   rw;   // GPIO 9 output enable
+        field OE_10: [10:10] rw;  // GPIO 10 output enable
+        field OE_11: [11:11] rw;  // GPIO 11 output enable
+        field OE_12: [12:12] rw;  // GPIO 12 output enable
+        field OE_13: [13:13] rw;  // GPIO 13 output enable
+        field OE_14: [14:14] rw;  // GPIO 14 output enable
+        field OE_15: [15:15] rw;  // GPIO 15 output enable
+        field OE_16: [16:16] rw;  // GPIO 16 output enable
+        field OE_17: [17:17] rw;  // GPIO 17 output enable
+        field OE_18: [18:18] rw;  // GPIO 18 output enable
+        field OE_19: [19:19] rw;  // GPIO 19 output enable
+        field OE_20: [20:20] rw;  // GPIO 20 output enable
+        field OE_21: [21:21] rw;  // GPIO 21 output enable
+        field OE_22: [22:22] rw;  // GPIO 22 output enable
+        field OE_23: [23:23] rw;  // GPIO 23 output enable
+        field OE_24: [24:24] rw;  // GPIO 24 output enable
+        field OE_25: [25:25] rw;  // GPIO 25 output enable
+        field RESERVED: [31:26] rw;  // Bits 26-31 reserved
+    }
+    
+    // Input Value Register
+    // Reads the current GPIO input values
+    // Bit=1 if GPIO is high, 0 if low
+    register GPIO_IN: u32 @ 0x24 {
+        field IN_0: [0:0]   ro;   // GPIO 0 input value
+        field IN_1: [1:1]   ro;   // GPIO 1 input value
+        field IN_2: [2:2]   ro;   // GPIO 2 input value
+        field IN_3: [3:3]   ro;   // GPIO 3 input value
+        field IN_4: [4:4]   ro;   // GPIO 4 input value
+        field IN_5: [5:5]   ro;   // GPIO 5 input value
+        field IN_6: [6:6]   ro;   // GPIO 6 input value
+        field IN_7: [7:7]   ro;   // GPIO 7 input value
+        field IN_8: [8:8]   ro;   // GPIO 8 input value
+        field IN_9: [9:9]   ro;   // GPIO 9 input value
+        field IN_10: [10:10] ro;  // GPIO 10 input value
+        field IN_11: [11:11] ro;  // GPIO 11 input value
+        field IN_12: [12:12] ro;  // GPIO 12 input value
+        field IN_13: [13:13] ro;  // GPIO 13 input value
+        field IN_14: [14:14] ro;  // GPIO 14 input value
+        field IN_15: [15:15] ro;  // GPIO 15 input value
+        field IN_16: [16:16] ro;  // GPIO 16 input value
+        field IN_17: [17:17] ro;  // GPIO 17 input value
+        field IN_18: [18:18] ro;  // GPIO 18 input value
+        field IN_19: [19:19] ro;  // GPIO 19 input value
+        field IN_20: [20:20] ro;  // GPIO 20 input value
+        field IN_21: [21:21] ro;  // GPIO 21 input value
+        field IN_22: [22:22] ro;  // GPIO 22 input value
+        field IN_23: [23:23] ro;  // GPIO 23 input value
+        field IN_24: [24:24] ro;  // GPIO 24 input value
+        field IN_25: [25:25] ro;  // GPIO 25 input value
+        field RESERVED: [31:26] ro;  // Bits 26-31 reserved
+    }
+    
+    // Output Value Register
+    // Sets the GPIO output values
+    // Write 1=set high, 0=set low
+    register GPIO_OUT: u32 @ 0x28 {
+        field OUT_0: [0:0]   rw;  // GPIO 0 output value
+        field OUT_1: [1:1]   rw;  // GPIO 1 output value
+        field OUT_2: [2:2]   rw;  // GPIO 2 output value
+        field OUT_3: [3:3]   rw;  // GPIO 3 output value
+        field OUT_4: [4:4]   rw;  // GPIO 4 output value
+        field OUT_5: [5:5]   rw;  // GPIO 5 output value
+        field OUT_6: [6:6]   rw;  // GPIO 6 output value
+        field OUT_7: [7:7]   rw;  // GPIO 7 output value
+        field OUT_8: [8:8]   rw;  // GPIO 8 output value
+        field OUT_9: [9:9]   rw;  // GPIO 9 output value
+        field OUT_10: [10:10] rw; // GPIO 10 output value
+        field OUT_11: [11:11] rw; // GPIO 11 output value
+        field OUT_12: [12:12] rw; // GPIO 12 output value
+        field OUT_13: [13:13] rw; // GPIO 13 output value
+        field OUT_14: [14:14] rw; // GPIO 14 output value
+        field OUT_15: [15:15] rw; // GPIO 15 output value
+        field OUT_16: [16:16] rw; // GPIO 16 output value
+        field OUT_17: [17:17] rw; // GPIO 17 output value
+        field OUT_18: [18:18] rw; // GPIO 18 output value
+        field OUT_19: [19:19] rw; // GPIO 19 output value
+        field OUT_20: [20:20] rw; // GPIO 20 output value
+        field OUT_21: [21:21] rw; // GPIO 21 output value
+        field OUT_22: [22:22] rw; // GPIO 22 output value
+        field OUT_23: [23:23] rw; // GPIO 23 output value
+        field OUT_24: [24:24] rw; // GPIO 24 output value
+        field OUT_25: [25:25] rw; // GPIO 25 output value
+        field RESERVED: [31:26] rw;  // Bits 26-31 reserved
+    }
+    
+    // Output Data Direction Register
+    // Open-drain control register
+    // Used for open-drain outputs (outputs pull low only)
+    register GPIO_OD: u32 @ 0x2C {
+        field OD_0: [0:0]   rw;   // GPIO 0 open-drain enable
+        field OD_1: [1:1]   rw;   // GPIO 1 open-drain enable
+        field OD_2: [2:2]   rw;   // GPIO 2 open-drain enable
+        field OD_3: [3:3]   rw;   // GPIO 3 open-drain enable
+        field OD_4: [4:4]   rw;   // GPIO 4 open-drain enable
+        field OD_5: [5:5]   rw;   // GPIO 5 open-drain enable
+        field OD_6: [6:6]   rw;   // GPIO 6 open-drain enable
+        field OD_7: [7:7]   rw;   // GPIO 7 open-drain enable
+        field OD_8: [8:8]   rw;   // GPIO 8 open-drain enable
+        field OD_9: [9:9]   rw;   // GPIO 9 open-drain enable
+        field OD_10: [10:10] rw;  // GPIO 10 open-drain enable
+        field OD_11: [11:11] rw;  // GPIO 11 open-drain enable
+        field OD_12: [12:12] rw;  // GPIO 12 open-drain enable
+        field OD_13: [13:13] rw;  // GPIO 13 open-drain enable
+        field OD_14: [14:14] rw;  // GPIO 14 open-drain enable
+        field OD_15: [15:15] rw;  // GPIO 15 open-drain enable
+        field OD_16: [16:16] rw;  // GPIO 16 open-drain enable
+        field OD_17: [17:17] rw;  // GPIO 17 open-drain enable
+        field OD_18: [18:18] rw;  // GPIO 18 open-drain enable
+        field OD_19: [19:19] rw;  // GPIO 19 open-drain enable
+        field OD_20: [20:20] rw;  // GPIO 20 open-drain enable
+        field OD_21: [21:21] rw;  // GPIO 21 open-drain enable
+        field OD_22: [22:22] rw;  // GPIO 22 open-drain enable
+        field OD_23: [23:23] rw;  // GPIO 23 open-drain enable
+        field OD_24: [24:24] rw;  // GPIO 24 open-drain enable
+        field OD_25: [25:25] rw;  // GPIO 25 open-drain enable
+        field RESERVED: [31:26] rw;  // Bits 26-31 reserved
+    }
+}
+
+// Example usage in firmware:
+// proc setup_gpio(): u32 =
+//   let gpio_pin: u32 = 25  // GPIO 25 = LED on Pico
+//   let mask: u32 = shl(1, gpio_pin)
+//   return mask

@@ -1,0 +1,210 @@
+// Raspberry Pi Pico (RP2040) UART Peripheral Definition
+// 
+// Memory Map:
+//   UART0 Base: 0x40034000
+//   UART1 Base: 0x40038000
+//   Size: 1KB each
+//
+// Description:
+//   Two independent UART (Universal Asynchronous Receiver/Transmitter)
+//   interfaces for serial communication.
+
+peripheral UART0 @ 0x40034000 {
+    // Data Register - Transmit/Receive FIFO
+    register UARTDR: u32 @ 0x00 {
+        field DATA: [7:0]   rw;   // Data to transmit/receive
+        field FE: [8:8]     ro;   // Framing error
+        field PE: [9:9]     ro;   // Parity error
+        field BE: [10:10]   ro;   // Break error
+        field OE: [11:11]   ro;   // Overrun error
+        field RESERVED: [31:12] rw;
+    }
+    
+    // Flag Register
+    register UARTFR: u32 @ 0x18 {
+        field CTS: [0:0]    ro;   // Clear to send
+        field DSR: [1:1]    ro;   // Data set ready
+        field DCD: [2:2]    ro;   // Data carrier detect
+        field BUSY: [3:3]   ro;   // UART busy
+        field RXFE: [4:4]   ro;   // Receive FIFO empty
+        field TXFF: [5:5]   ro;   // Transmit FIFO full
+        field RXFF: [6:6]   ro;   // Receive FIFO full
+        field TXFE: [7:7]   ro;   // Transmit FIFO empty
+        field RI: [8:8]     ro;   // Ring indicator
+        field RESERVED: [31:9] rw;
+    }
+    
+    // Integer Baud Rate Divisor
+    register UARTIBRD: u32 @ 0x24 {
+        field IBRD: [15:0]  rw;   // Integer baud rate divisor
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Fractional Baud Rate Divisor
+    register UARTFBRD: u32 @ 0x28 {
+        field FBRD: [5:0]   rw;   // Fractional baud rate divisor
+        field RESERVED: [31:6] rw;
+    }
+    
+    // Line Control Register
+    register UARTLCR_H: u32 @ 0x2C {
+        field BRK: [0:0]    rw;   // Send break
+        field PEN: [1:1]    rw;   // Parity enable
+        field EPS: [2:2]    rw;   // Even parity select
+        field STP2: [3:3]   rw;   // Two stop bits
+        field FEN: [4:4]    rw;   // Enable FIFOs
+        field WLEN: [6:5]   rw;   // Word length
+        field SPS: [7:7]    rw;   // Stick parity select
+        field RESERVED: [31:8] rw;
+    }
+    
+    // Control Register
+    register UARTCR: u32 @ 0x30 {
+        field UARTEN: [0:0] rw;   // UART enable
+        field SIREN: [1:1]  rw;   // SIR enable
+        field SIRLP: [2:2]  rw;   // SIR low power mode
+        field LBE: [7:7]    rw;   // Loopback enable
+        field TXE: [8:8]    rw;   // Transmit enable
+        field RXE: [9:9]    rw;   // Receive enable
+        field DTR: [10:10]  rw;   // Data transmit ready
+        field RTS: [11:11]  rw;   // Request to send
+        field OUT1: [12:12] rw;   // OUT1
+        field OUT2: [13:13] rw;   // OUT2
+        field RTSEN: [14:14] rw;  // RTS hardware flow control enable
+        field CTSEN: [15:15] rw;  // CTS hardware flow control enable
+        field RESERVED: [31:16] rw;
+    }
+    
+    // Interrupt FIFO Level Select Register
+    register UARTIFLS: u32 @ 0x34 {
+        field TXIFLSEL: [2:0] rw; // TX interrupt FIFO level
+        field RXIFLSEL: [5:3] rw; // RX interrupt FIFO level
+        field RESERVED: [31:6] rw;
+    }
+    
+    // Interrupt Mask Set/Clear Register
+    register UARTIMSC: u32 @ 0x38 {
+        field RIMIM: [0:0]  rw;   // RI interrupt mask
+        field CTSMIM: [1:1] rw;   // CTS interrupt mask
+        field DSRMIM: [2:2] rw;   // DSR interrupt mask
+        field DCDMIM: [3:3] rw;   // DCD interrupt mask
+        field TXIM: [5:5]   rw;   // TX interrupt mask
+        field RXIM: [4:4]   rw;   // RX interrupt mask
+        field RTIM: [6:6]   rw;   // RT interrupt mask
+        field FEIM: [7:7]   rw;   // FE interrupt mask
+        field PEIM: [8:8]   rw;   // PE interrupt mask
+        field BEIM: [9:9]   rw;   // BE interrupt mask
+        field OEIM: [10:10] rw;   // OE interrupt mask
+        field RESERVED: [31:11] rw;
+    }
+    
+    // Raw Interrupt Status Register
+    register UARTRIS: u32 @ 0x3C {
+        field RIMRIS: [0:0]  ro;  // RI raw interrupt status
+        field CTSRMIS: [1:1] ro;  // CTS raw interrupt status
+        field DSRMIS: [2:2]  ro;  // DSR raw interrupt status
+        field DCDRMIS: [3:3] ro;  // DCD raw interrupt status
+        field TXRIS: [5:5]   ro;  // TX raw interrupt status
+        field RXRIS: [4:4]   ro;  // RX raw interrupt status
+        field RTRIS: [6:6]   ro;  // RT raw interrupt status
+        field FERIS: [7:7]   ro;  // FE raw interrupt status
+        field PERIS: [8:8]   ro;  // PE raw interrupt status
+        field BERIS: [9:9]   ro;  // BE raw interrupt status
+        field OERIS: [10:10] ro;  // OE raw interrupt status
+        field RESERVED: [31:11] ro;
+    }
+    
+    // Masked Interrupt Status Register
+    register UARTMIS: u32 @ 0x40 {
+        field RIMMIS: [0:0]  ro;  // RI masked interrupt status
+        field CTSMMIS: [1:1] ro;  // CTS masked interrupt status
+        field DSRMMIS: [2:2] ro;  // DSR masked interrupt status
+        field DCDMMIS: [3:3] ro;  // DCD masked interrupt status
+        field TXMIS: [5:5]   ro;  // TX masked interrupt status
+        field RXMIS: [4:4]   ro;  // RX masked interrupt status
+        field RTMIS: [6:6]   ro;  // RT masked interrupt status
+        field FEMIS: [7:7]   ro;  // FE masked interrupt status
+        field PEMIS: [8:8]   ro;  // PE masked interrupt status
+        field BEMIS: [9:9]   ro;  // BE masked interrupt status
+        field OEMIS: [10:10] ro;  // OE masked interrupt status
+        field RESERVED: [31:11] ro;
+    }
+    
+    // Interrupt Clear Register
+    register UARTICR: u32 @ 0x44 {
+        field RIMIC: [0:0]   wo;  // RI interrupt clear
+        field CTSMIC: [1:1]  wo;  // CTS interrupt clear
+        field DSRMIC: [2:2]  wo;  // DSR interrupt clear
+        field DCDMIC: [3:3]  wo;  // DCD interrupt clear
+        field TXIC: [5:5]    wo;  // TX interrupt clear
+        field RXIC: [4:4]    wo;  // RX interrupt clear
+        field RTIC: [6:6]    wo;  // RT interrupt clear
+        field FEIC: [7:7]    wo;  // FE interrupt clear
+        field PEIC: [8:8]    wo;  // PE interrupt clear
+        field BEIC: [9:9]    wo;  // BE interrupt clear
+        field OEIC: [10:10]  wo;  // OE interrupt clear
+        field RESERVED: [31:11] wo;
+    }
+}
+
+// UART1 is identical to UART0 but at a different base address
+peripheral UART1 @ 0x40038000 {
+    register UARTDR: u32 @ 0x00 {
+        field DATA: [7:0]   rw;
+        field FE: [8:8]     ro;
+        field PE: [9:9]     ro;
+        field BE: [10:10]   ro;
+        field OE: [11:11]   ro;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register UARTFR: u32 @ 0x18 {
+        field CTS: [0:0]    ro;
+        field DSR: [1:1]    ro;
+        field DCD: [2:2]    ro;
+        field BUSY: [3:3]   ro;
+        field RXFE: [4:4]   ro;
+        field TXFF: [5:5]   ro;
+        field RXFF: [6:6]   ro;
+        field TXFE: [7:7]   ro;
+        field RI: [8:8]     ro;
+        field RESERVED: [31:9] rw;
+    }
+    
+    register UARTIBRD: u32 @ 0x24 {
+        field IBRD: [15:0]  rw;
+        field RESERVED: [31:16] rw;
+    }
+    
+    register UARTFBRD: u32 @ 0x28 {
+        field FBRD: [5:0]   rw;
+        field RESERVED: [31:6] rw;
+    }
+    
+    register UARTLCR_H: u32 @ 0x2C {
+        field BRK: [0:0]    rw;
+        field PEN: [1:1]    rw;
+        field EPS: [2:2]    rw;
+        field STP2: [3:3]   rw;
+        field FEN: [4:4]    rw;
+        field WLEN: [6:5]   rw;
+        field SPS: [7:7]    rw;
+        field RESERVED: [31:8] rw;
+    }
+    
+    register UARTCR: u32 @ 0x30 {
+        field UARTEN: [0:0] rw;
+        field SIREN: [1:1]  rw;
+        field SIRLP: [2:2]  rw;
+        field LBE: [7:7]    rw;
+        field TXE: [8:8]    rw;
+        field RXE: [9:9]    rw;
+        field DTR: [10:10]  rw;
+        field RTS: [11:11]  rw;
+        field OUT1: [12:12] rw;
+        field OUT2: [13:13] rw;
+        field RTSEN: [14:14] rw;
+        field CTSEN: [15:15] rw;
+        field RESERVED: [31:16] rw;
+    }
+}

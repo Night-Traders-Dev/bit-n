@@ -1,0 +1,182 @@
+// Raspberry Pi Pico (RP2040) DMA Peripheral Definition
+// 
+// Memory Map:
+//   DMA Base: 0x50000000
+//   Size: 60KB (12 channels)
+//
+// Description:
+//   12 independent DMA channels for efficient data movement.
+//   Each channel can be triggered by various sources.
+
+peripheral DMA @ 0x50000000 {
+    // Channel 0 Control and Configuration
+    register CH0_READ_ADDR: u32 @ 0x000 {
+        field ADDR: [31:0]  rw;   // Source read address
+    }
+    
+    register CH0_WRITE_ADDR: u32 @ 0x004 {
+        field ADDR: [31:0]  rw;   // Destination write address
+    }
+    
+    register CH0_TRANS_COUNT: u32 @ 0x008 {
+        field COUNT: [31:0] rw;   // Transfer count
+    }
+    
+    register CH0_CTRL_TRIG: u32 @ 0x00C {
+        field EN: [0:0]     rw;   // Channel enable
+        field HIGH_PRIORITY: [1:1] rw; // High priority
+        field RING_SEL: [2:2] rw; // Ring size (read or write)
+        field RING_SIZE: [5:3] rw; // Ring size (1-32 bytes)
+        field INCR_READ: [4:4] rw; // Increment read address
+        field INCR_WRITE: [5:5] rw; // Increment write address
+        field IRQ_QUIET: [6:6] rw; // Suppress IRQ
+        field TREQ_SEL: [10:7] rw; // Trigger select
+        field CHAIN_TO: [14:11] rw; // Chain to channel
+        field RESERVED: [31:15] rw;
+    }
+    
+    // Channel 1 Control and Configuration
+    register CH1_READ_ADDR: u32 @ 0x040 {
+        field ADDR: [31:0]  rw;
+    }
+    
+    register CH1_WRITE_ADDR: u32 @ 0x044 {
+        field ADDR: [31:0]  rw;
+    }
+    
+    register CH1_TRANS_COUNT: u32 @ 0x048 {
+        field COUNT: [31:0] rw;
+    }
+    
+    register CH1_CTRL_TRIG: u32 @ 0x04C {
+        field EN: [0:0]     rw;
+        field HIGH_PRIORITY: [1:1] rw;
+        field RING_SEL: [2:2] rw;
+        field RING_SIZE: [5:3] rw;
+        field INCR_READ: [4:4] rw;
+        field INCR_WRITE: [5:5] rw;
+        field IRQ_QUIET: [6:6] rw;
+        field TREQ_SEL: [10:7] rw;
+        field CHAIN_TO: [14:11] rw;
+        field RESERVED: [31:15] rw;
+    }
+    
+    // Channel 2-11 similar to Ch0-1 (pattern continues)
+    // Addresses: 0x080, 0x0C0, 0x100, 0x140, 0x180, 0x1C0, 0x200, 0x240, 0x280, 0x2C0
+    
+    register CH2_READ_ADDR: u32 @ 0x080 {
+        field ADDR: [31:0]  rw;
+    }
+    
+    register CH2_WRITE_ADDR: u32 @ 0x084 {
+        field ADDR: [31:0]  rw;
+    }
+    
+    register CH2_TRANS_COUNT: u32 @ 0x088 {
+        field COUNT: [31:0] rw;
+    }
+    
+    register CH2_CTRL_TRIG: u32 @ 0x08C {
+        field EN: [0:0]     rw;
+        field HIGH_PRIORITY: [1:1] rw;
+        field RING_SEL: [2:2] rw;
+        field RING_SIZE: [5:3] rw;
+        field INCR_READ: [4:4] rw;
+        field INCR_WRITE: [5:5] rw;
+        field IRQ_QUIET: [6:6] rw;
+        field TREQ_SEL: [10:7] rw;
+        field CHAIN_TO: [14:11] rw;
+        field RESERVED: [31:15] rw;
+    }
+    
+    // Remaining channels 3-11 follow same pattern
+    register CH3_READ_ADDR: u32 @ 0x0C0 {
+        field ADDR: [31:0]  rw;
+    }
+    
+    register CH3_WRITE_ADDR: u32 @ 0x0C4 {
+        field ADDR: [31:0]  rw;
+    }
+    
+    register CH3_TRANS_COUNT: u32 @ 0x0C8 {
+        field COUNT: [31:0] rw;
+    }
+    
+    register CH3_CTRL_TRIG: u32 @ 0x0CC {
+        field EN: [0:0]     rw;
+        field HIGH_PRIORITY: [1:1] rw;
+        field RING_SEL: [2:2] rw;
+        field RING_SIZE: [5:3] rw;
+        field INCR_READ: [4:4] rw;
+        field INCR_WRITE: [5:5] rw;
+        field IRQ_QUIET: [6:6] rw;
+        field TREQ_SEL: [10:7] rw;
+        field CHAIN_TO: [14:11] rw;
+        field RESERVED: [31:15] rw;
+    }
+    
+    // Global DMA Control Registers (base + 0x400)
+    register INTR: u32 @ 0x400 {
+        field CH0: [0:0]    ro;   // Channel 0 interrupt status
+        field CH1: [1:1]    ro;
+        field CH2: [2:2]    ro;
+        field CH3: [3:3]    ro;
+        field CH4: [4:4]    ro;
+        field CH5: [5:5]    ro;
+        field CH6: [6:6]    ro;
+        field CH7: [7:7]    ro;
+        field CH8: [8:8]    ro;
+        field CH9: [9:9]    ro;
+        field CH10: [10:10] ro;
+        field CH11: [11:11] ro;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register INTE0: u32 @ 0x404 {
+        field CH0: [0:0]    rw;   // Channel 0 interrupt enable
+        field CH1: [1:1]    rw;
+        field CH2: [2:2]    rw;
+        field CH3: [3:3]    rw;
+        field CH4: [4:4]    rw;
+        field CH5: [5:5]    rw;
+        field CH6: [6:6]    rw;
+        field CH7: [7:7]    rw;
+        field CH8: [8:8]    rw;
+        field CH9: [9:9]    rw;
+        field CH10: [10:10] rw;
+        field CH11: [11:11] rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register INTF0: u32 @ 0x408 {
+        field CH0: [0:0]    rw;   // Force channel 0 interrupt
+        field CH1: [1:1]    rw;
+        field CH2: [2:2]    rw;
+        field CH3: [3:3]    rw;
+        field CH4: [4:4]    rw;
+        field CH5: [5:5]    rw;
+        field CH6: [6:6]    rw;
+        field CH7: [7:7]    rw;
+        field CH8: [8:8]    rw;
+        field CH9: [9:9]    rw;
+        field CH10: [10:10] rw;
+        field CH11: [11:11] rw;
+        field RESERVED: [31:12] rw;
+    }
+    
+    register INTS0: u32 @ 0x40C {
+        field CH0: [0:0]    ro;   // Channel 0 interrupt status
+        field CH1: [1:1]    ro;
+        field CH2: [2:2]    ro;
+        field CH3: [3:3]    ro;
+        field CH4: [4:4]    ro;
+        field CH5: [5:5]    ro;
+        field CH6: [6:6]    ro;
+        field CH7: [7:7]    ro;
+        field CH8: [8:8]    ro;
+        field CH9: [9:9]    ro;
+        field CH10: [10:10] ro;
+        field CH11: [11:11] ro;
+        field RESERVED: [31:12] rw;
+    }
+}

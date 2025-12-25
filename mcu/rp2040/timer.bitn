@@ -1,0 +1,90 @@
+// Raspberry Pi Pico (RP2040) Timer Peripheral Definition
+// 
+// Memory Map:
+//   Timer Base: 0x40054000
+//   Size: 4KB
+//
+// Description:
+//   64-bit system timer with 4 alarm comparators.
+//   Counts microseconds since boot.
+
+peripheral TIMER @ 0x40054000 {
+    // Timer Low 32 bits
+    register TIMELO: u32 @ 0x00 {
+        field TIME: [31:0]  ro;   // Lower 32 bits of timer
+    }
+    
+    // Timer High 32 bits
+    register TIMEHI: u32 @ 0x04 {
+        field TIME: [31:0]  ro;   // Upper 32 bits of timer
+    }
+    
+    // Alarm 0 Comparator Register (lower 32 bits)
+    register ALARM0: u32 @ 0x10 {
+        field ALARM: [31:0] rw;   // Alarm 0 comparator value
+    }
+    
+    // Alarm 1 Comparator Register (lower 32 bits)
+    register ALARM1: u32 @ 0x14 {
+        field ALARM: [31:0] rw;   // Alarm 1 comparator value
+    }
+    
+    // Alarm 2 Comparator Register (lower 32 bits)
+    register ALARM2: u32 @ 0x18 {
+        field ALARM: [31:0] rw;   // Alarm 2 comparator value
+    }
+    
+    // Alarm 3 Comparator Register (lower 32 bits)
+    register ALARM3: u32 @ 0x1C {
+        field ALARM: [31:0] rw;   // Alarm 3 comparator value
+    }
+    
+    // Interrupt Raw Status Register
+    register INTR: u32 @ 0x20 {
+        field ALARM0: [0:0] ro;   // Alarm 0 interrupt raw
+        field ALARM1: [1:1] ro;   // Alarm 1 interrupt raw
+        field ALARM2: [2:2] ro;   // Alarm 2 interrupt raw
+        field ALARM3: [3:3] ro;   // Alarm 3 interrupt raw
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Interrupt Enable Register
+    register INTE: u32 @ 0x24 {
+        field ALARM0: [0:0] rw;   // Alarm 0 interrupt enable
+        field ALARM1: [1:1] rw;   // Alarm 1 interrupt enable
+        field ALARM2: [2:2] rw;   // Alarm 2 interrupt enable
+        field ALARM3: [3:3] rw;   // Alarm 3 interrupt enable
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Interrupt Force Register
+    register INTF: u32 @ 0x28 {
+        field ALARM0: [0:0] rw;   // Force alarm 0 interrupt
+        field ALARM1: [1:1] rw;   // Force alarm 1 interrupt
+        field ALARM2: [2:2] rw;   // Force alarm 2 interrupt
+        field ALARM3: [3:3] rw;   // Force alarm 3 interrupt
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Interrupt Status Register
+    register INTS: u32 @ 0x2C {
+        field ALARM0: [0:0] ro;   // Alarm 0 interrupt status
+        field ALARM1: [1:1] ro;   // Alarm 1 interrupt status
+        field ALARM2: [2:2] ro;   // Alarm 2 interrupt status
+        field ALARM3: [3:3] ro;   // Alarm 3 interrupt status
+        field RESERVED: [31:4] rw;
+    }
+    
+    // Reference clock counter (lower 32 bits)
+    register DBGPAUSE: u32 @ 0x30 {
+        field DBG_PAUSE_ON_NREQ: [0:0] rw; // Pause on non-request
+        field DBG_PAUSE_ON_DBG: [1:1] rw;  // Pause on debug
+        field RESERVED: [31:2] rw;
+    }
+    
+    // Pause Control Register
+    register PAUSE: u32 @ 0x34 {
+        field PAUSE: [0:0]  rw;   // Pause the timer
+        field RESERVED: [31:1] rw;
+    }
+}
